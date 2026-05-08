@@ -20,9 +20,13 @@ spring:
     filter:
       order: 5
 
-# Deshabilitar Spring Security temporalmente
+# Habilitar Spring Security
 security:
-  enable: false
+  enable: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-local-secret-change-me-32bytes}
+  expiration-hours: 8
 
 # Swagger/OpenAPI
 springdoc:

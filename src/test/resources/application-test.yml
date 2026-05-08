@@ -11,3 +11,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+
+security:
+  enable: true
+
+jwt:
+  secret: test-secret-test-secret-test-secret-test
+  expiration-hours: 8
+
