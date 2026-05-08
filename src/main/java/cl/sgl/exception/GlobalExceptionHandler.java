@@ -94,4 +94,21 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
+
+    /**
+     * Maneja excepciones de credenciales invalidas
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ResponseEntity<ApiResponse<Void>> handleUnauthorizedException(
+            UnauthorizedException ex,
+            WebRequest request) {
+
+        ApiResponse<Void> response = ApiResponse.error(
+            HttpStatus.UNAUTHORIZED.value(),
+            ex.getMessage()
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    }
 }

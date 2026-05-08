@@ -171,6 +171,32 @@
           }
         }
       ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [
@@ -185,7 +211,14 @@
     {
       "key": "serviceId",
       "value": "1"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@sgl.cl"
+    },
+    {
+      "key": "adminPassword",
+      "value": "admin123"
     }
   ]
 }
-
