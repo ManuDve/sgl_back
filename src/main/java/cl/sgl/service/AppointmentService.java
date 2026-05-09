@@ -2,10 +2,13 @@ package cl.sgl.service;
 
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
+import cl.sgl.dto.CreateAppointmentRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
+import cl.sgl.entity.LegalService;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
+import cl.sgl.repository.LegalServiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,12 +21,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
  * Servicio de lógica de negocio para agendamientos.
  *
- * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL, SGL-021 AG-HORAS, SGL-020 AG-FECHAS
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL, SGL-021 AG-HORAS, SGL-020 AG-FECHAS, SGL-024 AG-IDEXTERNO
  */
 @Service
 @RequiredArgsConstructor
@@ -31,6 +35,7 @@ import java.util.stream.Collectors;
 public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
+    private final LegalServiceRepository legalServiceRepository;
 
     /**
      * Lista agendamientos filtrados por estado.
@@ -119,6 +124,63 @@ public class AppointmentService {
 
         log.debug("Horas disponibles para {}: {}/{} slots libres", fecha, available.size(), allSlots.size());
         return available;
+    }
+
+    /**
+     * Crea un nuevo agendamiento, genera su idExterno y lo persiste con estado PENDING.
+     *
+     * @param request datos del agendamiento validados por Bean Validation
+     * @return DTO con el agendamiento completo, incluyendo idExterno generado
+     * @throws ResourceNotFoundException si el servicio no existe
+     * @throws IllegalArgumentException  si el servicio está inactivo o el slot ya está ocupado
+     */
+    @Transactional
+    public AppointmentDetailDTO createAppointment(CreateAppointmentRequest request) {
+        LegalService servicio = legalServiceRepository.findById(request.getServiceId())
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Servicio con ID " + request.getServiceId() + " no encontrado"));
+
+        if (!Boolean.TRUE.equals(servicio.getActive())) {
+            throw new IllegalArgumentException(
+                "El servicio '" + servicio.getName() + "' no está disponible actualmente.");
+        }
+
+        if (appointmentRepository.existsByFechaAndHoraAndEstadoNot(
+                request.getFecha(), request.getHora(), AppointmentStatus.CANCELLED)) {
+            throw new IllegalArgumentException(
+                "El horario " + request.getHora() + " del " + request.getFecha() + " ya no está disponible.");
+        }
+
+        String idExterno = generateIdExterno();
+
+        Appointment appointment = Appointment.builder()
+            .idExterno(idExterno)
+            .nombreCliente(request.getNombreCliente().trim())
+            .email(request.getEmail().trim().toLowerCase())
+            .telefono(request.getTelefono().trim())
+            .service(servicio)
+            .fecha(request.getFecha())
+            .hora(request.getHora())
+            .monto(servicio.getPrice())
+            .estado(AppointmentStatus.PENDING)
+            .aceptaTerminos(request.getAceptaTerminos())
+            .build();
+
+        Appointment saved = appointmentRepository.save(appointment);
+        log.info("Agendamiento creado: {} | {} {} | {}", saved.getIdExterno(),
+            saved.getFecha(), saved.getHora(), saved.getNombreCliente());
+
+        return mapToDetail(saved);
+    }
+
+    /** Genera un idExterno en formato AG-XXXX-NNNN. */
+    private String generateIdExterno() {
+        StringBuilder letras = new StringBuilder(4);
+        for (int i = 0; i < 4; i++) {
+            letras.append((char) ('A' + ThreadLocalRandom.current().nextInt(26)));
+        }
+        long seq = appointmentRepository.count() + 1;
+        return String.format("AG-%s-%04d", letras, seq);
     }
 
     /**

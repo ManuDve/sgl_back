@@ -1,6 +1,8 @@
 package cl.sgl.controller;
 
 import cl.sgl.dto.ApiResponse;
+import cl.sgl.dto.AppointmentDetailDTO;
+import cl.sgl.dto.CreateAppointmentRequest;
 import cl.sgl.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -12,7 +14,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,11 +33,12 @@ import java.util.Map;
  * No requieren autenticación JWT.
  *
  * Rutas:
- * - GET /api/appointments/ping                              → health check
- * - GET /api/appointments/hours-available?date=...          → horas disponibles
- * - GET /api/appointments/days-available?from=...&days=30   → días hábiles disponibles
+ * - POST /api/appointments                                   → crear agendamiento
+ * - GET  /api/appointments/ping                              → health check
+ * - GET  /api/appointments/hours-available?date=...          → horas disponibles
+ * - GET  /api/appointments/days-available?from=...&days=30   → días hábiles disponibles
  *
- * Historias: SGL-016 AG-NOLOGIN, SGL-021 AG-HORAS, SGL-020 AG-FECHAS
+ * Historias: SGL-016 AG-NOLOGIN, SGL-021 AG-HORAS, SGL-020 AG-FECHAS, SGL-024 AG-IDEXTERNO
  */
 @RestController
 @RequestMapping("/api/appointments")
@@ -42,6 +48,41 @@ import java.util.Map;
 public class PublicAppointmentController {
 
     private final AppointmentService appointmentService;
+
+    @PostMapping
+    @Operation(
+        summary = "Crear agendamiento",
+        description = """
+            Crea un nuevo agendamiento público. Genera un idExterno en formato AG-XXXX-NNNN,
+            persiste con estado PENDING y retorna el agendamiento completo.
+            No requiere autenticación.
+            """
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "Agendamiento creado exitosamente",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "Campos inválidos, servicio inactivo o slot ocupado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Servicio no encontrado")
+    })
+    public ResponseEntity<ApiResponse<AppointmentDetailDTO>> createAppointment(
+        @Valid @RequestBody CreateAppointmentRequest request) {
+
+        log.info("POST /api/appointments - {} | {} {}", request.getNombreCliente(),
+            request.getFecha(), request.getHora());
+
+        AppointmentDetailDTO created = appointmentService.createAppointment(request);
+        ApiResponse<AppointmentDetailDTO> response = new ApiResponse<>(
+            HttpStatus.CREATED.value(),
+            "Agendamiento creado exitosamente",
+            created
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
 
     @GetMapping("/ping")
     @Operation(

@@ -2,11 +2,13 @@ package cl.sgl.service;
 
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
+import cl.sgl.dto.CreateAppointmentRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
+import cl.sgl.repository.LegalServiceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,9 @@ class AppointmentServiceTest {
 
     @Mock
     private AppointmentRepository appointmentRepository;
+
+    @Mock
+    private LegalServiceRepository legalServiceRepository;
 
     @InjectMocks
     private AppointmentService appointmentService;
@@ -276,6 +281,91 @@ class AppointmentServiceTest {
         List<String> result = appointmentService.getAvailableHours(fecha);
 
         assertTrue(result.isEmpty());
+    }
+
+    // ── SGL-024 AG-IDEXTERNO ──────────────────────────────────────
+
+    private CreateAppointmentRequest buildRequest() {
+        return CreateAppointmentRequest.builder()
+            .nombreCliente("Ana Martínez López")
+            .email("ana@example.cl")
+            .telefono("+56912345678")
+            .serviceId(1L)
+            .fecha(LocalDate.now().plusDays(3))
+            .hora(LocalTime.of(10, 0))
+            .aceptaTerminos(true)
+            .build();
+    }
+
+    @Test
+    @DisplayName("createAppointment crea agendamiento y retorna idExterno en formato AG-XXXX-NNNN")
+    void testCreateAppointment_Success() {
+        CreateAppointmentRequest req = buildRequest();
+
+        when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoNot(
+            req.getFecha(), req.getHora(), AppointmentStatus.CANCELLED)).thenReturn(false);
+        when(appointmentRepository.count()).thenReturn(5L);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> {
+            Appointment a = inv.getArgument(0);
+            a.setId(6L);
+            a.setCreatedAt(LocalDateTime.now());
+            a.setUpdatedAt(LocalDateTime.now());
+            return a;
+        });
+
+        AppointmentDetailDTO result = appointmentService.createAppointment(req);
+
+        assertNotNull(result);
+        assertNotNull(result.getIdExterno());
+        assertTrue(result.getIdExterno().matches("AG-[A-Z]{4}-\\d{4}"),
+            "idExterno debe tener formato AG-XXXX-NNNN, fue: " + result.getIdExterno());
+        assertEquals("PENDING", result.getEstado());
+        assertEquals("Divorcio Contencioso", result.getMateria());
+        verify(appointmentRepository).save(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("createAppointment falla si el slot ya está ocupado")
+    void testCreateAppointment_SlotOcupado() {
+        CreateAppointmentRequest req = buildRequest();
+
+        when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoNot(
+            req.getFecha(), req.getHora(), AppointmentStatus.CANCELLED)).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.createAppointment(req));
+
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAppointment falla si el servicio no existe")
+    void testCreateAppointment_ServicioNoEncontrado() {
+        CreateAppointmentRequest req = buildRequest();
+        when(legalServiceRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+            appointmentService.createAppointment(req));
+
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAppointment falla si el servicio está inactivo")
+    void testCreateAppointment_ServicioInactivo() {
+        LegalService inactivo = LegalService.builder()
+            .id(1L).name("Servicio Inactivo").price(new BigDecimal("100000"))
+            .active(false).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+            .build();
+        CreateAppointmentRequest req = buildRequest();
+        when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(inactivo));
+
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.createAppointment(req));
+
+        verify(appointmentRepository, never()).save(any());
     }
 
     // ── SGL-020 AG-FECHAS ─────────────────────────────────────────

@@ -30,4 +30,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     @Query("SELECT a.hora FROM Appointment a WHERE a.fecha = :fecha AND a.estado != :cancelado")
     List<LocalTime> findBookedHoursForDate(@Param("fecha") LocalDate fecha,
                                            @Param("cancelado") AppointmentStatus cancelado);
+
+    /**
+     * Verifica si existe un agendamiento activo (no cancelado) para la fecha y hora indicadas.
+     * Usado para prevenir doble reserva del mismo slot.
+     */
+    boolean existsByFechaAndHoraAndEstadoNot(LocalDate fecha, LocalTime hora, AppointmentStatus estado);
 }
