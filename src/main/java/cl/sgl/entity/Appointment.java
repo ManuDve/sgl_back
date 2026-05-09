@@ -14,7 +14,7 @@ import java.time.LocalTime;
 /**
  * Entidad que representa un agendamiento de consulta legal.
  *
- * Historia: SGL-045 ADM-LIST-PEND
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-016 AG-NOLOGIN, SGL-100 LEGAL-CONSENT
  */
 @Entity
 @Table(name = "appointments", indexes = {
@@ -61,6 +61,10 @@ public class Appointment {
     @Column(name = "estado", nullable = false, length = 20)
     @Builder.Default
     private AppointmentStatus estado = AppointmentStatus.PENDING;
+
+    @Column(name = "acepta_terminos", nullable = false)
+    @Builder.Default
+    private Boolean aceptaTerminos = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -1,5 +1,5 @@
 -- Migración para crear tabla de agendamientos
--- Historia: SGL-045 ADM-LIST-PEND
+-- Historias: SGL-045 ADM-LIST-PEND, SGL-016 AG-NOLOGIN, SGL-100 LEGAL-CONSENT
 -- Fecha: 2026-05-08
 -- Nota: referencia documental — el esquema es gestionado por Hibernate ddl-auto=update
 
@@ -13,9 +13,10 @@ CREATE TABLE IF NOT EXISTS appointments (
     fecha       DATE            NOT NULL,
     hora        TIME            NOT NULL,
     monto       NUMERIC(12, 2)  NOT NULL,
-    estado      VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
-    created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    estado          VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
+    acepta_terminos BOOLEAN         NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_estado CHECK (estado IN ('PENDING', 'CONFIRMED', 'CANCELLED', 'RESCHEDULED'))
 );
 

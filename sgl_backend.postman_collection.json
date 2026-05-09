@@ -173,6 +173,23 @@
       ]
     },
     {
+      "name": "Agendamiento público",
+      "item": [
+        {
+          "name": "GET Ping agendamiento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/ping",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "ping"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Agendamientos - Admin",
       "item": [
         {
