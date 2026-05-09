@@ -2,6 +2,7 @@ package cl.sgl.service;
 
 import cl.sgl.dto.CreateLegalServiceRequest;
 import cl.sgl.dto.LegalServiceResponse;
+import cl.sgl.dto.ServicePublicDTO;
 import cl.sgl.dto.UpdateLegalServiceRequest;
 import cl.sgl.entity.LegalService;
 import cl.sgl.exception.ResourceNotFoundException;
@@ -103,6 +104,24 @@ public class LegalServiceService {
         List<LegalService> services = serviceRepository.findByActiveTrue();
         return services.stream()
             .map(this::mapToResponse)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Retorna servicios activos en formato público (DTO reducido para el formulario de agendamiento).
+     *
+     * @return lista de ServicePublicDTO con id, nombre, descripcion, precio
+     */
+    public List<ServicePublicDTO> getPublicServices() {
+        log.debug("Obteniendo servicios públicos para agendamiento");
+
+        return serviceRepository.findByActiveTrue().stream()
+            .map(s -> ServicePublicDTO.builder()
+                .id(s.getId())
+                .nombre(s.getName())
+                .descripcion(s.getDescription())
+                .precio(s.getPrice())
+                .build())
             .collect(Collectors.toList());
     }
 

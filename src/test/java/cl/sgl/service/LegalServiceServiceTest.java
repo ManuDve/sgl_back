@@ -2,6 +2,7 @@ package cl.sgl.service;
 
 import cl.sgl.dto.CreateLegalServiceRequest;
 import cl.sgl.dto.LegalServiceResponse;
+import cl.sgl.dto.ServicePublicDTO;
 import cl.sgl.dto.UpdateLegalServiceRequest;
 import cl.sgl.entity.LegalService;
 import cl.sgl.exception.ResourceNotFoundException;
@@ -28,7 +29,7 @@ import static org.mockito.Mockito.*;
  * Tests unitarios para ServiceService.
  * Utiliza Mockito para aislar la lógica de negocio.
  *
- * Historia: SGL-052 ADM-SERV-CRUD
+ * Historias: SGL-052 ADM-SERV-CRUD, SGL-018 AG-SELECT-MAT
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ServiceService Tests")
@@ -301,5 +302,35 @@ class LegalServiceServiceTest {
         assertEquals(testService.getPrice(), response.getPrice()); // Sin cambios
 
         verify(serviceRepository, times(1)).save(any(LegalService.class));
+    }
+
+    // ── SGL-018 AG-SELECT-MAT ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("getPublicServices retorna solo servicios activos con campos públicos")
+    void testGetPublicServices_Success() {
+        when(serviceRepository.findByActiveTrue()).thenReturn(List.of(testService));
+
+        List<ServicePublicDTO> result = legalServiceService.getPublicServices();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).getId());
+        assertEquals("Divorcio Contencioso", result.get(0).getNombre());
+        assertEquals("Trámite de divorcio con contestación", result.get(0).getDescripcion());
+        assertEquals(new BigDecimal("500000"), result.get(0).getPrecio());
+
+        verify(serviceRepository, times(1)).findByActiveTrue();
+    }
+
+    @Test
+    @DisplayName("getPublicServices retorna lista vacía cuando no hay servicios activos")
+    void testGetPublicServices_Empty() {
+        when(serviceRepository.findByActiveTrue()).thenReturn(List.of());
+
+        List<ServicePublicDTO> result = legalServiceService.getPublicServices();
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 }

@@ -173,6 +173,23 @@
       ]
     },
     {
+      "name": "Servicios públicos",
+      "item": [
+        {
+          "name": "GET Servicios disponibles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/services",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "services"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Agendamiento público",
       "item": [
         {
