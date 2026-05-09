@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     hora        TIME            NOT NULL,
     monto       NUMERIC(12, 2)  NOT NULL,
     estado          VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
-    acepta_terminos BOOLEAN         NOT NULL DEFAULT FALSE,
+    acepta_terminos BOOLEAN         NOT NULL DEFAULT FALSE,  -- SGL-016 AG-NOLOGIN / SGL-100 LEGAL-CONSENT
     created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_estado CHECK (estado IN ('PENDING', 'CONFIRMED', 'CANCELLED', 'RESCHEDULED'))

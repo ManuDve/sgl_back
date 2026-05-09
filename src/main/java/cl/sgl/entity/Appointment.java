@@ -62,7 +62,7 @@ public class Appointment {
     @Builder.Default
     private AppointmentStatus estado = AppointmentStatus.PENDING;
 
-    @Column(name = "acepta_terminos", nullable = false)
+    @Column(name = "acepta_terminos", nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
     @Builder.Default
     private Boolean aceptaTerminos = false;
 
