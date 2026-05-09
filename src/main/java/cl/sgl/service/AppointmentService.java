@@ -1,8 +1,10 @@
 package cl.sgl.service;
 
+import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
+import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +50,44 @@ public class AppointmentService {
         return appointments.stream()
             .map(this::mapToSummary)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Retorna el detalle completo de un agendamiento por ID interno.
+     *
+     * @param id ID interno del agendamiento
+     * @return DTO con todos los campos
+     * @throws ResourceNotFoundException si no existe
+     */
+    @Transactional(readOnly = true)
+    public AppointmentDetailDTO getById(Long id) {
+        Appointment appointment = appointmentRepository.findById(id)
+            .orElseThrow(() -> {
+                log.warn("Agendamiento no encontrado con ID: {}", id);
+                return new ResourceNotFoundException("Agendamiento con ID " + id + " no encontrado");
+            });
+
+        log.debug("Detalle de agendamiento ID={}", id);
+        return mapToDetail(appointment);
+    }
+
+    private AppointmentDetailDTO mapToDetail(Appointment appointment) {
+        return AppointmentDetailDTO.builder()
+            .id(appointment.getId())
+            .idExterno(appointment.getIdExterno())
+            .nombreCliente(appointment.getNombreCliente())
+            .email(appointment.getEmail())
+            .telefono(appointment.getTelefono())
+            .servicioId(appointment.getService().getId())
+            .materia(appointment.getService().getName())
+            .descripcionServicio(appointment.getService().getDescription())
+            .fecha(appointment.getFecha())
+            .hora(appointment.getHora())
+            .monto(appointment.getMonto())
+            .estado(appointment.getEstado().name())
+            .createdAt(appointment.getCreatedAt())
+            .updatedAt(appointment.getUpdatedAt())
+            .build();
     }
 
     private AppointmentSummaryDTO mapToSummary(Appointment appointment) {

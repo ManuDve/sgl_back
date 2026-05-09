@@ -1,9 +1,11 @@
 package cl.sgl.service;
 
+import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
+import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -25,7 +28,7 @@ import static org.mockito.Mockito.*;
 /**
  * Tests unitarios para AppointmentService.
  *
- * Historia: SGL-045 ADM-LIST-PEND
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AppointmentService Tests")
@@ -183,5 +186,77 @@ class AppointmentServiceTest {
         assertEquals(LocalTime.of(10, 0), dto.getHora());
         assertEquals(new BigDecimal("500000"), dto.getMonto());
         assertEquals("PENDING", dto.getEstado());
+    }
+
+    // ── SGL-046 ADM-DETAIL ────────────────────────────────────────────
+
+    @Test
+    @DisplayName("getById retorna detalle completo cuando existe")
+    void testGetById_Success() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(pendingAppointment));
+
+        AppointmentDetailDTO dto = appointmentService.getById(1L);
+
+        assertNotNull(dto);
+        assertEquals(1L, dto.getId());
+        assertEquals("AG-2026-0001", dto.getIdExterno());
+        assertEquals("Juan Pérez", dto.getNombreCliente());
+        assertEquals("juan@example.com", dto.getEmail());
+        assertEquals("+56912345678", dto.getTelefono());
+        assertEquals(1L, dto.getServicioId());
+        assertEquals("Divorcio Contencioso", dto.getMateria());
+        assertEquals(LocalDate.of(2026, 5, 15), dto.getFecha());
+        assertEquals(LocalTime.of(10, 0), dto.getHora());
+        assertEquals(new BigDecimal("500000"), dto.getMonto());
+        assertEquals("PENDING", dto.getEstado());
+        assertNotNull(dto.getCreatedAt());
+        assertNotNull(dto.getUpdatedAt());
+
+        verify(appointmentRepository).findById(1L);
+    }
+
+    @Test
+    @DisplayName("getById lanza ResourceNotFoundException cuando no existe")
+    void testGetById_NotFound() {
+        when(appointmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> appointmentService.getById(999L));
+
+        verify(appointmentRepository).findById(999L);
+    }
+
+    @Test
+    @DisplayName("getById incluye descripción del servicio")
+    void testGetById_IncluyeDescripcionServicio() {
+        servicio = LegalService.builder()
+            .id(1L)
+            .name("Divorcio Contencioso")
+            .description("Descripción detallada del servicio")
+            .price(new BigDecimal("500000"))
+            .active(true)
+            .createdAt(LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
+            .build();
+
+        Appointment apt = Appointment.builder()
+            .id(1L)
+            .idExterno("AG-2026-0001")
+            .nombreCliente("Juan Pérez")
+            .email("juan@example.com")
+            .telefono("+56912345678")
+            .service(servicio)
+            .fecha(LocalDate.of(2026, 5, 15))
+            .hora(LocalTime.of(10, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .createdAt(LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
+            .build();
+
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(apt));
+
+        AppointmentDetailDTO dto = appointmentService.getById(1L);
+
+        assertEquals("Descripción detallada del servicio", dto.getDescripcionServicio());
     }
 }

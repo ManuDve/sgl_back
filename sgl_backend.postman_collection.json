@@ -193,6 +193,22 @@
           }
         },
         {
+          "name": "GET Detalle de agendamiento",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/{{appointmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments", "{{appointmentId}}"]
+            }
+          }
+        },
+        {
           "name": "GET Listar todos los agendamientos",
           "request": {
             "auth": {
@@ -248,6 +264,10 @@
     },
     {
       "key": "serviceId",
+      "value": "1"
+    },
+    {
+      "key": "appointmentId",
       "value": "1"
     },
     {
