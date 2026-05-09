@@ -16,9 +16,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -223,6 +225,149 @@ class AppointmentServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> appointmentService.getById(999L));
 
         verify(appointmentRepository).findById(999L);
+    }
+
+    // ── SGL-021 AG-HORAS ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("getAvailableHours retorna 9 slots cuando no hay agendamientos")
+    void testGetAvailableHours_TodosLibres() {
+        LocalDate fecha = LocalDate.of(2026, 6, 1);
+        when(appointmentRepository.findBookedHoursForDate(fecha, AppointmentStatus.CANCELLED))
+            .thenReturn(Collections.emptyList());
+
+        List<String> result = appointmentService.getAvailableHours(fecha);
+
+        assertEquals(9, result.size());
+        assertEquals("09:00", result.get(0));
+        assertEquals("17:00", result.get(8));
+        verify(appointmentRepository).findBookedHoursForDate(fecha, AppointmentStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("getAvailableHours excluye slots ocupados por agendamientos activos")
+    void testGetAvailableHours_ExcluyeOcupados() {
+        LocalDate fecha = LocalDate.of(2026, 6, 1);
+        when(appointmentRepository.findBookedHoursForDate(fecha, AppointmentStatus.CANCELLED))
+            .thenReturn(List.of(LocalTime.of(9, 0), LocalTime.of(11, 0), LocalTime.of(14, 0)));
+
+        List<String> result = appointmentService.getAvailableHours(fecha);
+
+        assertEquals(6, result.size());
+        assertFalse(result.contains("09:00"));
+        assertFalse(result.contains("11:00"));
+        assertFalse(result.contains("14:00"));
+        assertTrue(result.contains("10:00"));
+        assertTrue(result.contains("12:00"));
+    }
+
+    @Test
+    @DisplayName("getAvailableHours retorna lista vacía si todos los slots están ocupados")
+    void testGetAvailableHours_TodosOcupados() {
+        LocalDate fecha = LocalDate.of(2026, 6, 1);
+        List<LocalTime> todosOcupados = List.of(
+            LocalTime.of(9, 0), LocalTime.of(10, 0), LocalTime.of(11, 0),
+            LocalTime.of(12, 0), LocalTime.of(13, 0), LocalTime.of(14, 0),
+            LocalTime.of(15, 0), LocalTime.of(16, 0), LocalTime.of(17, 0)
+        );
+        when(appointmentRepository.findBookedHoursForDate(fecha, AppointmentStatus.CANCELLED))
+            .thenReturn(todosOcupados);
+
+        List<String> result = appointmentService.getAvailableHours(fecha);
+
+        assertTrue(result.isEmpty());
+    }
+
+    // ── SGL-020 AG-FECHAS ─────────────────────────────────────────
+
+    @Test
+    @DisplayName("getAvailableDays retorna solo lunes a viernes en la ventana")
+    void testGetAvailableDays_ExcluyeFinDeSemana() {
+        // 2026-05-11 es lunes
+        LocalDate lunes = LocalDate.of(2026, 5, 11);
+
+        List<String> result = appointmentService.getAvailableDays(lunes, 7);
+
+        // 7 días calendario desde lunes → lun/mar/mié/jue/vie/sáb/dom → 5 hábiles
+        assertEquals(5, result.size());
+        assertEquals("2026-05-11", result.get(0)); // lunes
+        assertEquals("2026-05-15", result.get(4)); // viernes
+        assertFalse(result.contains("2026-05-16")); // sábado excluido
+        assertFalse(result.contains("2026-05-17")); // domingo excluido
+    }
+
+    @Test
+    @DisplayName("getAvailableDays desde sábado salta al lunes siguiente")
+    void testGetAvailableDays_DesdeFinDeSemana() {
+        // 2026-05-09 es sábado
+        LocalDate sabado = LocalDate.of(2026, 5, 9);
+
+        List<String> result = appointmentService.getAvailableDays(sabado, 3);
+
+        // 3 días: sáb/dom/lun → solo lunes hábil
+        assertEquals(1, result.size());
+        assertEquals("2026-05-11", result.get(0));
+    }
+
+    @Test
+    @DisplayName("getAvailableDays con days=30 retorna aprox 21-22 días hábiles")
+    void testGetAvailableDays_VentanaMes() {
+        LocalDate lunes = LocalDate.of(2026, 5, 11);
+
+        List<String> result = appointmentService.getAvailableDays(lunes, 30);
+
+        // 30 días calendario = 4 semanas + 2 → entre 20 y 22 hábiles
+        assertTrue(result.size() >= 20 && result.size() <= 22);
+        result.forEach(d -> {
+            DayOfWeek dow = LocalDate.parse(d).getDayOfWeek();
+            assertNotEquals(DayOfWeek.SATURDAY, dow);
+            assertNotEquals(DayOfWeek.SUNDAY, dow);
+        });
+    }
+
+    @Test
+    @DisplayName("getAvailableDays con days=1 retorna máximo 1 día hábil")
+    void testGetAvailableDays_UnDia() {
+        LocalDate lunes = LocalDate.of(2026, 5, 11);
+        List<String> result = appointmentService.getAvailableDays(lunes, 1);
+        assertEquals(1, result.size());
+        assertEquals("2026-05-11", result.get(0));
+    }
+
+    @Test
+    @DisplayName("getAvailableDays retorna lista vacía si la ventana cae en fin de semana completo")
+    void testGetAvailableDays_VentanaFinDeSemana() {
+        // 2026-05-09 sábado, ventana 2 días → sáb + dom, 0 hábiles
+        LocalDate sabado = LocalDate.of(2026, 5, 9);
+        List<String> result = appointmentService.getAvailableDays(sabado, 2);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("getAvailableHours para hoy retorna slots disponibles")
+    void testGetAvailableHours_Hoy() {
+        LocalDate hoy = LocalDate.now();
+        when(appointmentRepository.findBookedHoursForDate(hoy, AppointmentStatus.CANCELLED))
+            .thenReturn(Collections.emptyList());
+
+        List<String> result = appointmentService.getAvailableHours(hoy);
+
+        assertNotNull(result);
+        assertFalse(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("getAvailableHours no excluye slots de agendamientos CANCELLED")
+    void testGetAvailableHours_CancelledNoBloquea() {
+        LocalDate fecha = LocalDate.of(2026, 6, 1);
+        // findBookedHoursForDate excluye CANCELLED internamente en el repo
+        // → si la query solo devuelve PENDING/CONFIRMED/RESCHEDULED, los CANCELLED no aparecen
+        when(appointmentRepository.findBookedHoursForDate(fecha, AppointmentStatus.CANCELLED))
+            .thenReturn(Collections.emptyList()); // CANCELLED no bloquea → lista vacía
+
+        List<String> result = appointmentService.getAvailableHours(fecha);
+
+        assertEquals(9, result.size()); // todos libres
     }
 
     @Test

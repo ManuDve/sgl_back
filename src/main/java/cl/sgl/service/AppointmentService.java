@@ -11,13 +11,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
  * Servicio de lógica de negocio para agendamientos.
  *
- * Historia: SGL-045 ADM-LIST-PEND
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL, SGL-021 AG-HORAS, SGL-020 AG-FECHAS
  */
 @Service
 @RequiredArgsConstructor
@@ -88,6 +94,65 @@ public class AppointmentService {
             .createdAt(appointment.getCreatedAt())
             .updatedAt(appointment.getUpdatedAt())
             .build();
+    }
+
+    /**
+     * Retorna los slots horarios disponibles para una fecha dada.
+     * Horario base: 09:00–17:00, intervalo de 60 minutos (America/Santiago).
+     * Excluye los slots ocupados por agendamientos activos (no CANCELLED).
+     *
+     * @param fecha fecha a consultar
+     * @return lista de horas disponibles en formato "HH:mm", ordenada
+     */
+    @Transactional(readOnly = true)
+    public List<String> getAvailableHours(LocalDate fecha) {
+        List<LocalTime> allSlots = buildSlots();
+        Set<LocalTime> booked   = Set.copyOf(
+            appointmentRepository.findBookedHoursForDate(fecha, AppointmentStatus.CANCELLED)
+        );
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");
+        List<String> available = allSlots.stream()
+            .filter(slot -> !booked.contains(slot))
+            .map(fmt::format)
+            .collect(Collectors.toList());
+
+        log.debug("Horas disponibles para {}: {}/{} slots libres", fecha, available.size(), allSlots.size());
+        return available;
+    }
+
+    /**
+     * Retorna los días hábiles (lunes a viernes) dentro de una ventana de días calendario.
+     * No consulta la BD — la disponibilidad de horas se verifica con getAvailableHours.
+     *
+     * @param from  primer día a considerar (debe ser hoy o futuro)
+     * @param days  ventana en días calendario (1–90)
+     * @return lista de fechas hábiles en formato "YYYY-MM-DD", ordenadas ascendente
+     */
+    public List<String> getAvailableDays(LocalDate from, int days) {
+        List<String> result = new ArrayList<>();
+        LocalDate limit = from.plusDays(days);
+
+        for (LocalDate d = from; d.isBefore(limit); d = d.plusDays(1)) {
+            DayOfWeek dow = d.getDayOfWeek();
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+                result.add(d.toString());
+            }
+        }
+
+        log.debug("Días hábiles desde {} ({} días): {} fechas", from, days, result.size());
+        return result;
+    }
+
+    private List<LocalTime> buildSlots() {
+        List<LocalTime> slots = new ArrayList<>();
+        LocalTime hora = LocalTime.of(9, 0);
+        LocalTime fin  = LocalTime.of(18, 0);
+        while (hora.isBefore(fin)) {
+            slots.add(hora);
+            hora = hora.plusHours(1);
+        }
+        return slots;
     }
 
     private AppointmentSummaryDTO mapToSummary(Appointment appointment) {

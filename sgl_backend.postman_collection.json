@@ -193,6 +193,35 @@
       "name": "Agendamiento público",
       "item": [
         {
+          "name": "GET Días hábiles disponibles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/days-available?days=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "days-available"],
+              "query": [
+                { "key": "from",  "value": "", "disabled": true },
+                { "key": "days",  "value": "30" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Horas disponibles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/hours-available?date=2026-06-01",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments", "hours-available"],
+              "query": [{ "key": "date", "value": "2026-06-01" }]
+            }
+          }
+        },
+        {
           "name": "GET Ping agendamiento",
           "request": {
             "method": "GET",
