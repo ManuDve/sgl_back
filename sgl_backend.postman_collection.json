@@ -173,6 +173,44 @@
       ]
     },
     {
+      "name": "Agendamientos - Admin",
+      "item": [
+        {
+          "name": "GET Listar agendamientos pendientes",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments"],
+              "query": [{ "key": "status", "value": "pending" }]
+            }
+          }
+        },
+        {
+          "name": "GET Listar todos los agendamientos",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {
