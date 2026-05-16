@@ -3,6 +3,7 @@ package cl.sgl.service;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.CreateAppointmentRequest;
+import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
@@ -189,6 +190,33 @@ public class AppointmentService {
         log.info("Agendamiento creado: {} | {} {} | {}", saved.getIdExterno(),
             saved.getFecha(), saved.getHora(), saved.getNombreCliente());
 
+        return mapToDetail(saved);
+    }
+
+    /**
+     * Cambia el estado de un agendamiento existente.
+     *
+     * @param id      ID interno del agendamiento
+     * @param request contiene el nuevo estado (español o inglés)
+     * @return DTO actualizado con todos los campos
+     * @throws ResourceNotFoundException si no existe el agendamiento
+     * @throws IllegalArgumentException  si el valor de estado es inválido
+     */
+    @Transactional
+    public AppointmentDetailDTO updateStatus(Long id, UpdateAppointmentStatusRequest request) {
+        Appointment appointment = appointmentRepository.findById(id)
+            .orElseThrow(() -> {
+                log.warn("Agendamiento no encontrado para cambiar estado, ID: {}", id);
+                return new ResourceNotFoundException("Agendamiento con ID " + id + " no encontrado");
+            });
+
+        AppointmentStatus nuevoEstado = AppointmentStatus.fromString(request.getEstado());
+        AppointmentStatus estadoAnterior = appointment.getEstado();
+
+        appointment.setEstado(nuevoEstado);
+        Appointment saved = appointmentRepository.save(appointment);
+
+        log.info("Estado agendamiento ID={} cambiado: {} → {}", id, estadoAnterior, nuevoEstado);
         return mapToDetail(saved);
     }
 

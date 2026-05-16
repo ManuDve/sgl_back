@@ -3,6 +3,7 @@ package cl.sgl.service;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.CreateAppointmentRequest;
+import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
@@ -230,6 +231,56 @@ class AppointmentServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> appointmentService.getById(999L));
 
         verify(appointmentRepository).findById(999L);
+    }
+
+    // ── SGL-047 ADM-STATE ────────────────────────────────────────
+
+    @Test
+    @DisplayName("updateStatus cambia el estado correctamente y retorna DTO actualizado")
+    void testUpdateStatus_Success() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(pendingAppointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.updateStatus(1L,
+            new UpdateAppointmentStatusRequest("CONFIRMADO"));
+
+        assertNotNull(result);
+        assertEquals("CONFIRMED", result.getEstado());
+        verify(appointmentRepository).save(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("updateStatus acepta valores en inglés")
+    void testUpdateStatus_InglesAceptado() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(pendingAppointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.updateStatus(1L,
+            new UpdateAppointmentStatusRequest("CANCELLED"));
+
+        assertEquals("CANCELLED", result.getEstado());
+    }
+
+    @Test
+    @DisplayName("updateStatus lanza IllegalArgumentException con estado inválido")
+    void testUpdateStatus_EstadoInvalido() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(pendingAppointment));
+
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.updateStatus(1L, new UpdateAppointmentStatusRequest("INVALIDO")));
+
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateStatus lanza ResourceNotFoundException si el agendamiento no existe")
+    void testUpdateStatus_NotFound() {
+        when(appointmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+            appointmentService.updateStatus(999L, new UpdateAppointmentStatusRequest("CONFIRMADO")));
+
+        verify(appointmentRepository, never()).save(any());
     }
 
     // ── SGL-021 AG-HORAS ─────────────────────────────────────────

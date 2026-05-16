@@ -3,6 +3,7 @@ package cl.sgl.controller;
 import cl.sgl.dto.ApiResponse;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
+import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,8 +16,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,11 +31,12 @@ import java.util.List;
  * Controlador REST para gestión de agendamientos en el panel admin.
  *
  * Rutas:
- * - GET /api/admin/appointments              → Listar todos los agendamientos
- * - GET /api/admin/appointments?status=X     → Listar agendamientos por estado
- * - GET /api/admin/appointments/{id}         → Detalle completo de un agendamiento
+ * - GET   /api/admin/appointments                  → Listar todos los agendamientos
+ * - GET   /api/admin/appointments?status=X          → Listar por estado
+ * - GET   /api/admin/appointments/{id}              → Detalle completo
+ * - PATCH /api/admin/appointments/{id}/estado       → Cambiar estado
  *
- * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL, SGL-047 ADM-STATE
  */
 @RestController
 @RequestMapping("/api/admin/appointments")
@@ -125,5 +130,34 @@ public class AppointmentController {
             detail
         );
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{id}/estado")
+    @Operation(
+        summary = "Cambiar estado de agendamiento",
+        description = "Actualiza el estado de un agendamiento. Acepta español (PENDIENTE, CONFIRMADO, CANCELADO, REAGENDADO) o inglés (PENDING, CONFIRMED, CANCELLED, RESCHEDULED). Requiere autenticación de administrador."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Estado actualizado correctamente",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Estado inválido"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Agendamiento no encontrado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "No autenticado")
+    })
+    public ResponseEntity<ApiResponse<AppointmentDetailDTO>> updateStatus(
+        @Parameter(description = "ID interno del agendamiento") @PathVariable Long id,
+        @Valid @RequestBody UpdateAppointmentStatusRequest request) {
+
+        log.info("PATCH /api/admin/appointments/{}/estado - nuevo estado: {}", id, request.getEstado());
+
+        AppointmentDetailDTO updated = appointmentService.updateStatus(id, request);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Estado actualizado exitosamente",
+            updated
+        ));
     }
 }

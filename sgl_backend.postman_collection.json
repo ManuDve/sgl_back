@@ -272,6 +272,20 @@
           }
         },
         {
+          "name": "PATCH Cambiar estado",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"estado\": \"CONFIRMADO\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/{{appointmentId}}/estado",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments", "{{appointmentId}}", "estado"]
+            }
+          }
+        },
+        {
           "name": "GET Detalle de agendamiento",
           "request": {
             "auth": {

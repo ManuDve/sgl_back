@@ -7,12 +7,14 @@ public enum AppointmentStatus {
     RESCHEDULED;
 
     public static AppointmentStatus fromString(String value) {
-        try {
-            return AppointmentStatus.valueOf(value.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                "Estado inválido: '" + value + "'. Valores válidos: PENDING, CONFIRMED, CANCELLED, RESCHEDULED"
+        return switch (value.toUpperCase().trim()) {
+            case "PENDING",    "PENDIENTE"   -> PENDING;
+            case "CONFIRMED",  "CONFIRMADO"  -> CONFIRMED;
+            case "CANCELLED",  "CANCELADO"   -> CANCELLED;
+            case "RESCHEDULED","REAGENDADO"  -> RESCHEDULED;
+            default -> throw new IllegalArgumentException(
+                "Estado inválido: '" + value + "'. Valores válidos: PENDING/PENDIENTE, CONFIRMED/CONFIRMADO, CANCELLED/CANCELADO, RESCHEDULED/REAGENDADO"
             );
-        }
+        };
     }
 }
