@@ -1,6 +1,7 @@
 package cl.sgl.controller;
 
 import cl.sgl.dto.ApiResponse;
+import cl.sgl.dto.AppointmentCalendarDTO;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.ConfirmPaymentRequest;
@@ -49,6 +50,52 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+
+    /**
+     * Retorna los agendamientos de un mes paginados por semana.
+     * Semana 1 = días 1–7, semana 2 = días 8–14, …, hasta recortado al fin de mes.
+     * El campo `totalSemanas` permite al frontend construir la navegación prev/next.
+     */
+    @GetMapping("/calendario")
+    @Operation(
+        summary = "Calendario de agendamientos",
+        description = "Retorna agendamientos del mes paginados por semana de 7 días. " +
+            "`semana` es 1-indexado: semana 1 = días 1–7, semana 2 = días 8–14, etc. " +
+            "La última semana se recorta al último día del mes. " +
+            "`totalSemanas` indica el límite de navegación. " +
+            "Solo se incluyen fechas que tienen al menos un agendamiento. " +
+            "Requiere autenticación de administrador."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Calendario obtenido exitosamente",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Formato de mes inválido o semana fuera de rango"
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "No autenticado"
+        )
+    })
+    public ResponseEntity<ApiResponse<AppointmentCalendarDTO>> getCalendario(
+        @Parameter(description = "Mes en formato YYYY-MM", required = true, example = "2026-05")
+        @RequestParam String mes,
+        @Parameter(description = "Número de semana dentro del mes (1-indexado, por defecto 1)", example = "1")
+        @RequestParam(defaultValue = "1") int semana) {
+
+        log.info("GET /api/admin/appointments/calendario - mes={}, semana={}", mes, semana);
+
+        AppointmentCalendarDTO calendario = appointmentService.getCalendario(mes, semana);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Calendario obtenido exitosamente",
+            calendario
+        ));
+    }
 
     /**
      * Lista agendamientos, con filtro opcional por estado.

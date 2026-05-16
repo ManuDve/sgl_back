@@ -1,5 +1,6 @@
 package cl.sgl.service;
 
+import cl.sgl.dto.AppointmentCalendarDTO;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.ConfirmPaymentRequest;
@@ -21,9 +22,13 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -296,6 +301,63 @@ public class AppointmentService {
 
         log.debug("Días hábiles desde {} ({} días): {} fechas", from, days, result.size());
         return result;
+    }
+
+    /**
+     * Retorna los agendamientos de un mes paginados por semana de 7 días.
+     * Semana 1 = días 1–7, semana 2 = días 8–14, etc.
+     * La última semana se recorta al último día del mes.
+     *
+     * @param mes    mes en formato YYYY-MM
+     * @param semana número de semana dentro del mes (1-indexado)
+     * @return DTO con metadatos de paginación y agendamientos agrupados por fecha
+     * @throws IllegalArgumentException si el formato de mes es inválido o la semana está fuera de rango
+     */
+    @Transactional(readOnly = true)
+    public AppointmentCalendarDTO getCalendario(String mes, int semana) {
+        YearMonth yearMonth;
+        try {
+            yearMonth = YearMonth.parse(mes);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Formato de mes inválido. Use YYYY-MM (ej: 2026-05).");
+        }
+
+        int totalSemanas = (int) Math.ceil(yearMonth.lengthOfMonth() / 7.0);
+
+        if (semana < 1 || semana > totalSemanas) {
+            throw new IllegalArgumentException(
+                "La semana debe estar entre 1 y " + totalSemanas + " para el mes " + mes + ".");
+        }
+
+        LocalDate desde = yearMonth.atDay(1).plusDays((long) (semana - 1) * 7);
+        LocalDate hasta = desde.plusDays(6);
+        if (hasta.isAfter(yearMonth.atEndOfMonth())) {
+            hasta = yearMonth.atEndOfMonth();
+        }
+
+        List<Appointment> appointments =
+            appointmentRepository.findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta);
+
+        Map<String, List<AppointmentSummaryDTO>> dias = appointments.stream()
+            .collect(Collectors.groupingBy(
+                a -> a.getFecha().toString(),
+                LinkedHashMap::new,
+                Collectors.mapping(this::mapToSummary, Collectors.toList())
+            ));
+
+        log.debug("Calendario {}, semana {}/{}: {} días con agendamientos ({} → {})",
+            mes, semana, totalSemanas, dias.size(), desde, hasta);
+
+        return AppointmentCalendarDTO.builder()
+            .mes(mes)
+            .semana(semana)
+            .totalSemanas(totalSemanas)
+            .desde(desde.toString())
+            .hasta(hasta.toString())
+            .primera(semana == 1)
+            .ultima(semana == totalSemanas)
+            .dias(dias)
+            .build();
     }
 
     private List<LocalTime> buildSlots() {

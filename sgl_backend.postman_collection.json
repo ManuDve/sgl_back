@@ -330,6 +330,26 @@
               "path": ["api", "admin", "appointments"]
             }
           }
+        },
+        {
+          "name": "GET Calendario (semana 1 de mayo)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/calendario?mes=2026-05&semana=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments", "calendario"],
+              "query": [
+                { "key": "mes", "value": "2026-05", "description": "Mes en formato YYYY-MM" },
+                { "key": "semana", "value": "1", "description": "Semana dentro del mes (1-indexado, default: 1)" }
+              ]
+            }
+          }
         }
       ]
     },

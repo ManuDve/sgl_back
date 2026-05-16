@@ -1,5 +1,6 @@
 package cl.sgl.service;
 
+import cl.sgl.dto.AppointmentCalendarDTO;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.ConfirmPaymentRequest;
@@ -534,6 +535,133 @@ class AppointmentServiceTest {
         LocalDate sabado = LocalDate.of(2026, 5, 9);
         List<String> result = appointmentService.getAvailableDays(sabado, 2);
         assertTrue(result.isEmpty());
+    }
+
+    // ── SGL-049 ADM-CAL ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("getCalendario retorna metadatos y agendamientos agrupados por fecha")
+    void testGetCalendario_Exitoso() {
+        LocalDate desde = LocalDate.of(2026, 5, 1);
+        LocalDate hasta = LocalDate.of(2026, 5, 7);
+        when(appointmentRepository.findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta))
+            .thenReturn(List.of(pendingAppointment)); // fecha 2026-05-15 cae fuera, pero mockito devuelve lo que se le dice
+
+        AppointmentCalendarDTO result = appointmentService.getCalendario("2026-05", 1);
+
+        assertNotNull(result);
+        assertEquals("2026-05", result.getMes());
+        assertEquals(1, result.getSemana());
+        assertEquals(5, result.getTotalSemanas()); // ceil(31/7) = 5
+        assertEquals("2026-05-01", result.getDesde());
+        assertEquals("2026-05-07", result.getHasta());
+        assertTrue(result.isPrimera());
+        assertFalse(result.isUltima());
+        assertNotNull(result.getDias());
+        verify(appointmentRepository).findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta);
+    }
+
+    @Test
+    @DisplayName("getCalendario agrupa correctamente múltiples agendamientos en la misma fecha")
+    void testGetCalendario_AgrupaAgendamientosPorFecha() {
+        Appointment segundaCita = Appointment.builder()
+            .id(3L).idExterno("AG-ZZZZ-0003")
+            .nombreCliente("Pedro Soto").email("pedro@example.cl").telefono("+56911111111")
+            .service(servicio)
+            .fecha(LocalDate.of(2026, 5, 15)) // misma fecha que pendingAppointment
+            .hora(LocalTime.of(11, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+            .build();
+
+        LocalDate desde = LocalDate.of(2026, 5, 15);
+        LocalDate hasta = LocalDate.of(2026, 5, 21);
+        when(appointmentRepository.findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta))
+            .thenReturn(List.of(pendingAppointment, segundaCita));
+
+        AppointmentCalendarDTO result = appointmentService.getCalendario("2026-05", 3);
+
+        assertEquals(1, result.getDias().size()); // una sola clave de fecha
+        List<AppointmentSummaryDTO> citasDelDia = result.getDias().get("2026-05-15");
+        assertNotNull(citasDelDia);
+        assertEquals(2, citasDelDia.size());
+        assertEquals(LocalTime.of(10, 0), citasDelDia.get(0).getHora());
+        assertEquals(LocalTime.of(11, 0), citasDelDia.get(1).getHora());
+    }
+
+    @Test
+    @DisplayName("getCalendario retorna mapa vacío si no hay agendamientos en la semana")
+    void testGetCalendario_SinAgendamientos() {
+        LocalDate desde = LocalDate.of(2026, 5, 1);
+        LocalDate hasta = LocalDate.of(2026, 5, 7);
+        when(appointmentRepository.findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta))
+            .thenReturn(List.of());
+
+        AppointmentCalendarDTO result = appointmentService.getCalendario("2026-05", 1);
+
+        assertNotNull(result.getDias());
+        assertTrue(result.getDias().isEmpty());
+    }
+
+    @Test
+    @DisplayName("getCalendario recorta 'hasta' al último día del mes en la semana final")
+    void testGetCalendario_UltimaSemanaRecortadaAlFinDeMes() {
+        // Mayo 2026 tiene 31 días. Semana 5: días 29–31 (no 29–35).
+        LocalDate desde = LocalDate.of(2026, 5, 29);
+        LocalDate hasta = LocalDate.of(2026, 5, 31);
+        when(appointmentRepository.findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta))
+            .thenReturn(List.of());
+
+        AppointmentCalendarDTO result = appointmentService.getCalendario("2026-05", 5);
+
+        assertEquals("2026-05-29", result.getDesde());
+        assertEquals("2026-05-31", result.getHasta());
+        assertTrue(result.isUltima());
+        assertFalse(result.isPrimera());
+        verify(appointmentRepository).findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta);
+    }
+
+    @Test
+    @DisplayName("getCalendario con mes en formato inválido lanza IllegalArgumentException")
+    void testGetCalendario_MesInvalido() {
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.getCalendario("05-2026", 1));
+
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.getCalendario("no-es-fecha", 1));
+
+        verify(appointmentRepository, never()).findByFechaBetweenOrderByFechaAscHoraAsc(any(), any());
+    }
+
+    @Test
+    @DisplayName("getCalendario con semana fuera de rango lanza IllegalArgumentException")
+    void testGetCalendario_SemanaFueraDeRango() {
+        // Mayo 2026: totalSemanas = 5
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.getCalendario("2026-05", 0));
+
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.getCalendario("2026-05", 6));
+
+        verify(appointmentRepository, never()).findByFechaBetweenOrderByFechaAscHoraAsc(any(), any());
+    }
+
+    @Test
+    @DisplayName("getCalendario en mes de 28 días tiene exactamente 4 semanas")
+    void testGetCalendario_MesConCuatroSemanas() {
+        // Febrero 2026: 28 días → ceil(28/7) = 4 semanas exactas
+        LocalDate desde = LocalDate.of(2026, 2, 22);
+        LocalDate hasta = LocalDate.of(2026, 2, 28);
+        when(appointmentRepository.findByFechaBetweenOrderByFechaAscHoraAsc(desde, hasta))
+            .thenReturn(List.of());
+
+        AppointmentCalendarDTO result = appointmentService.getCalendario("2026-02", 4);
+
+        assertEquals(4, result.getTotalSemanas());
+        assertEquals("2026-02-22", result.getDesde());
+        assertEquals("2026-02-28", result.getHasta());
+        assertTrue(result.isUltima());
     }
 
     @Test

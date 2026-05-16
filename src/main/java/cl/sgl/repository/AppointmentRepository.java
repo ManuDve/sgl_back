@@ -38,4 +38,11 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     boolean existsByFechaAndHoraAndEstadoNot(LocalDate fecha, LocalTime hora, AppointmentStatus estado);
 
     java.util.Optional<Appointment> findByIdExterno(String idExterno);
+
+    /**
+     * Retorna todos los agendamientos dentro de un rango de fechas (inclusive en ambos extremos),
+     * ordenados por fecha y hora ascendente.
+     * Usado por el calendario semanal del panel admin (SGL-049 ADM-CAL).
+     */
+    List<Appointment> findByFechaBetweenOrderByFechaAscHoraAsc(LocalDate desde, LocalDate hasta);
 }
