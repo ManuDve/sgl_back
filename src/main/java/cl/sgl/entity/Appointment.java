@@ -14,7 +14,7 @@ import java.time.LocalTime;
 /**
  * Entidad que representa un agendamiento de consulta legal.
  *
- * Historias: SGL-045 ADM-LIST-PEND, SGL-016 AG-NOLOGIN, SGL-100 LEGAL-CONSENT
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-016 AG-NOLOGIN, SGL-100 LEGAL-CONSENT, SGL-048 PAY-MANUAL-CONF
  */
 @Entity
 @Table(name = "appointments", indexes = {
@@ -65,6 +65,16 @@ public class Appointment {
     @Column(name = "acepta_terminos", nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
     @Builder.Default
     private Boolean aceptaTerminos = false;
+
+    // Campos de confirmación de pago — se rellenan al ejecutar PAY-MANUAL-CONF
+    @Column(name = "numero_transaccion", length = 100)
+    private String codigoTransaccion;
+
+    @Column(name = "monto_confirmado", precision = 12, scale = 2)
+    private BigDecimal montoConfirmado;
+
+    @Column(name = "fecha_pago")
+    private LocalDateTime fechaPago;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

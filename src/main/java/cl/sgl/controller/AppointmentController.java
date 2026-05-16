@@ -3,6 +3,7 @@ package cl.sgl.controller;
 import cl.sgl.dto.ApiResponse;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
+import cl.sgl.dto.ConfirmPaymentRequest;
 import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,8 +36,9 @@ import java.util.List;
  * - GET   /api/admin/appointments?status=X          → Listar por estado
  * - GET   /api/admin/appointments/{id}              → Detalle completo
  * - PATCH /api/admin/appointments/{id}/estado       → Cambiar estado
+ * - PATCH /api/admin/appointments/{id}/pago         → Confirmar pago manual
  *
- * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL, SGL-047 ADM-STATE
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-046 ADM-DETAIL, SGL-047 ADM-STATE, SGL-048 PAY-MANUAL-CONF
  */
 @RestController
 @RequestMapping("/api/admin/appointments")
@@ -157,6 +159,36 @@ public class AppointmentController {
         return ResponseEntity.ok(new ApiResponse<>(
             HttpStatus.OK.value(),
             "Estado actualizado exitosamente",
+            updated
+        ));
+    }
+
+    @PatchMapping("/{id}/pago")
+    @Operation(
+        summary = "Confirmar pago manual",
+        description = "Registra el número de transacción y monto de la transferencia bancaria. Cambia el estado a CONFIRMED automáticamente. Requiere autenticación de administrador."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "Pago confirmado correctamente",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "Campos inválidos o agendamiento cancelado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Agendamiento no encontrado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+            description = "No autenticado")
+    })
+    public ResponseEntity<ApiResponse<AppointmentDetailDTO>> confirmPayment(
+        @Parameter(description = "ID interno del agendamiento") @PathVariable Long id,
+        @Valid @RequestBody ConfirmPaymentRequest request) {
+
+        log.info("PATCH /api/admin/appointments/{}/pago - txn: {}", id, request.getCodigoTransaccion());
+
+        AppointmentDetailDTO updated = appointmentService.confirmPayment(id, request);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Pago confirmado exitosamente",
             updated
         ));
     }

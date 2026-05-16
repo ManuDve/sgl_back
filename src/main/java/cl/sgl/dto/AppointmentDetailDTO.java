@@ -40,6 +40,11 @@ public class AppointmentDetailDTO {
     private BigDecimal monto;
     private String estado;
 
+    // Confirmación de pago (null si no se ha confirmado)
+    private String codigoTransaccion;
+    private BigDecimal montoConfirmado;
+    private LocalDateTime fechaPago;
+
     // Auditoría
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

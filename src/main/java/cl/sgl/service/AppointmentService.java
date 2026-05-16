@@ -2,6 +2,7 @@ package cl.sgl.service;
 
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
+import cl.sgl.dto.ConfirmPaymentRequest;
 import cl.sgl.dto.CreateAppointmentRequest;
 import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
@@ -15,8 +16,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -116,6 +119,9 @@ public class AppointmentService {
             .hora(appointment.getHora())
             .monto(appointment.getMonto())
             .estado(appointment.getEstado().name())
+            .codigoTransaccion(appointment.getCodigoTransaccion())
+            .montoConfirmado(appointment.getMontoConfirmado())
+            .fechaPago(appointment.getFechaPago())
             .createdAt(appointment.getCreatedAt())
             .updatedAt(appointment.getUpdatedAt())
             .build();
@@ -189,6 +195,45 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
         log.info("Agendamiento creado: {} | {} {} | {}", saved.getIdExterno(),
             saved.getFecha(), saved.getHora(), saved.getNombreCliente());
+
+        return mapToDetail(saved);
+    }
+
+    /**
+     * Confirma el pago manual de un agendamiento.
+     * Registra número de transacción, monto confirmado y fecha de pago,
+     * y cambia el estado a CONFIRMED automáticamente.
+     *
+     * @param id      ID interno del agendamiento
+     * @param request datos del pago (número de transacción y monto)
+     * @return DTO actualizado con los campos de pago
+     * @throws ResourceNotFoundException si no existe el agendamiento
+     * @throws IllegalArgumentException  si el agendamiento está CANCELLED
+     */
+    @Transactional
+    public AppointmentDetailDTO confirmPayment(Long id, ConfirmPaymentRequest request) {
+        Appointment appointment = appointmentRepository.findById(id)
+            .orElseThrow(() -> {
+                log.warn("Agendamiento no encontrado para confirmar pago, ID: {}", id);
+                return new ResourceNotFoundException("Agendamiento con ID " + id + " no encontrado");
+            });
+
+        if (AppointmentStatus.CANCELLED.equals(appointment.getEstado())) {
+            throw new IllegalArgumentException(
+                "No se puede confirmar el pago de un agendamiento cancelado.");
+        }
+
+        // El monto confirmado se toma del agendamiento (no del request) para evitar errores de digitación.
+        // TODO: cuando se integre una pasarela de pago (Transbank/Stripe), este método
+        //       podrá ser reemplazado por confirmación automática vía webhook.
+        appointment.setCodigoTransaccion(request.getCodigoTransaccion().trim());
+        appointment.setMontoConfirmado(appointment.getMonto());
+        appointment.setFechaPago(LocalDateTime.now());
+        appointment.setEstado(AppointmentStatus.CONFIRMED);
+
+        Appointment saved = appointmentRepository.save(appointment);
+        log.info("Pago confirmado — ID={} | codigo={} | monto={}",
+            id, request.getCodigoTransaccion(), appointment.getMonto());
 
         return mapToDetail(saved);
     }

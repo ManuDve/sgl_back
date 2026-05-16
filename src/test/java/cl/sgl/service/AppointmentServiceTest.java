@@ -2,6 +2,7 @@ package cl.sgl.service;
 
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
+import cl.sgl.dto.ConfirmPaymentRequest;
 import cl.sgl.dto.CreateAppointmentRequest;
 import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
@@ -231,6 +232,57 @@ class AppointmentServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> appointmentService.getById(999L));
 
         verify(appointmentRepository).findById(999L);
+    }
+
+    // ── SGL-048 PAY-MANUAL-CONF ──────────────────────────────────
+
+    @Test
+    @DisplayName("confirmPayment registra transacción, toma el monto del agendamiento y cambia estado a CONFIRMED")
+    void testConfirmPayment_Success() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(pendingAppointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.confirmPayment(1L,
+            new ConfirmPaymentRequest("TXN-12345678"));
+
+        assertEquals("CONFIRMED",    result.getEstado());
+        assertEquals("TXN-12345678", result.getCodigoTransaccion());
+        // montoConfirmado debe ser igual al monto del agendamiento
+        assertEquals(pendingAppointment.getMonto(), result.getMontoConfirmado());
+        assertNotNull(result.getFechaPago());
+        verify(appointmentRepository).save(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("confirmPayment lanza ResourceNotFoundException si el agendamiento no existe")
+    void testConfirmPayment_NotFound() {
+        when(appointmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+            appointmentService.confirmPayment(999L, new ConfirmPaymentRequest("TXN-99999")));
+
+        verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("confirmPayment lanza IllegalArgumentException si el agendamiento está cancelado")
+    void testConfirmPayment_Cancelado() {
+        Appointment cancelado = Appointment.builder()
+            .id(3L).idExterno("AG-2026-0003")
+            .nombreCliente("Test").email("t@t.cl").telefono("+56900000000")
+            .service(servicio)
+            .fecha(LocalDate.now().plusDays(5)).hora(LocalTime.of(10, 0))
+            .monto(new BigDecimal("85000"))
+            .estado(AppointmentStatus.CANCELLED)
+            .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+            .build();
+
+        when(appointmentRepository.findById(3L)).thenReturn(Optional.of(cancelado));
+
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.confirmPayment(3L, new ConfirmPaymentRequest("TXN-99999")));
+
+        verify(appointmentRepository, never()).save(any());
     }
 
     // ── SGL-047 ADM-STATE ────────────────────────────────────────

@@ -272,6 +272,20 @@
           }
         },
         {
+          "name": "PATCH Confirmar pago",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"codigoTransaccion\": \"123456789\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/{{appointmentId}}/pago",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments", "{{appointmentId}}", "pago"]
+            }
+          }
+        },
+        {
           "name": "PATCH Cambiar estado",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
