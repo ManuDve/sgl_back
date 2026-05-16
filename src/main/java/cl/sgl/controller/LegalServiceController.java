@@ -3,12 +3,16 @@ package cl.sgl.controller;
 import cl.sgl.dto.ApiResponse;
 import cl.sgl.dto.CreateLegalServiceRequest;
 import cl.sgl.dto.LegalServiceResponse;
+import cl.sgl.dto.ServicePriceHistoryDTO;
 import cl.sgl.dto.UpdateLegalServiceRequest;
+import cl.sgl.dto.UpdateServicePriceRequest;
 import cl.sgl.service.LegalServiceService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -248,6 +252,94 @@ public class LegalServiceController {
                 e.getMessage()
             );
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+    }
+
+    /**
+     * Actualiza el precio de un servicio y registra el cambio en el historial.
+     * El precio anterior queda guardado en service_price_history antes de aplicar el nuevo.
+     */
+    @PatchMapping("/api/admin/services/{id}/precio")
+    @Operation(
+        summary = "Actualizar precio de servicio",
+        description = "Actualiza el precio de un servicio y guarda el precio anterior en el historial. " +
+            "Requiere autenticación de administrador."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Precio actualizado y servicio retornado",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "Precio inválido o idéntico al actual"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Servicio no encontrado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+            description = "No autenticado")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<LegalServiceResponse>> updatePrice(
+        @Parameter(description = "ID del servicio") @PathVariable Long id,
+        @Valid @RequestBody UpdateServicePriceRequest request) {
+
+        log.info("PATCH /api/admin/services/{}/precio - nuevo precio: {}", id, request.getPrecio());
+
+        try {
+            LegalServiceResponse response = legalServiceService.updatePrice(id, request);
+            return ResponseEntity.ok(new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "Precio actualizado exitosamente",
+                response
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(new ApiResponse<>(
+                HttpStatus.BAD_REQUEST.value(), e.getMessage(), e.getMessage()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(
+                HttpStatus.NOT_FOUND.value(), e.getMessage(), e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Lista el historial de cambios de precio de un servicio, del más reciente al más antiguo.
+     */
+    @GetMapping("/api/admin/services/{id}/historial-precios")
+    @Operation(
+        summary = "Historial de precios de un servicio",
+        description = "Retorna todos los cambios de precio registrados para el servicio, " +
+            "ordenados del más reciente al más antiguo. Requiere autenticación de administrador."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Historial de precios",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Servicio no encontrado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+            description = "No autenticado")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<List<ServicePriceHistoryDTO>>> getPriceHistory(
+        @Parameter(description = "ID del servicio") @PathVariable Long id) {
+
+        log.info("GET /api/admin/services/{}/historial-precios", id);
+
+        try {
+            List<ServicePriceHistoryDTO> history = legalServiceService.getPriceHistory(id);
+            return ResponseEntity.ok(new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "Historial de precios obtenido exitosamente",
+                history
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse<>(
+                HttpStatus.NOT_FOUND.value(), e.getMessage(), e.getMessage()
+            ));
         }
     }
 

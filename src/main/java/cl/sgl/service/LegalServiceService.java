@@ -2,16 +2,21 @@ package cl.sgl.service;
 
 import cl.sgl.dto.CreateLegalServiceRequest;
 import cl.sgl.dto.LegalServiceResponse;
+import cl.sgl.dto.ServicePriceHistoryDTO;
 import cl.sgl.dto.ServicePublicDTO;
 import cl.sgl.dto.UpdateLegalServiceRequest;
+import cl.sgl.dto.UpdateServicePriceRequest;
 import cl.sgl.entity.LegalService;
+import cl.sgl.entity.ServicePriceHistory;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.LegalServiceRepository;
+import cl.sgl.repository.ServicePriceHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,6 +33,7 @@ import java.util.stream.Collectors;
 public class LegalServiceService {
 
     private final LegalServiceRepository serviceRepository;
+    private final ServicePriceHistoryRepository priceHistoryRepository;
 
     /**
      * Crea un nuevo servicio.
@@ -188,6 +194,73 @@ public class LegalServiceService {
 
         serviceRepository.deleteById(id);
         log.info("Servicio eliminado exitosamente, ID: {}", id);
+    }
+
+    /**
+     * Actualiza el precio de un servicio y registra el cambio en el historial.
+     * Lanza IllegalArgumentException si el precio nuevo es idéntico al actual.
+     *
+     * @param id      ID del servicio
+     * @param request DTO con el nuevo precio
+     * @return DTO con el servicio actualizado
+     * @throws ResourceNotFoundException si el servicio no existe
+     * @throws IllegalArgumentException  si el precio es idéntico al actual
+     */
+    public LegalServiceResponse updatePrice(Long id, UpdateServicePriceRequest request) {
+        LegalService service = serviceRepository.findById(id)
+            .orElseThrow(() -> {
+                log.warn("Servicio no encontrado para actualizar precio, ID: {}", id);
+                return new ResourceNotFoundException("Servicio con ID " + id + " no encontrado");
+            });
+
+        BigDecimal precioAnterior = service.getPrice();
+        BigDecimal precioNuevo    = BigDecimal.valueOf(request.getPrecio());
+
+        if (precioAnterior.compareTo(precioNuevo) == 0) {
+            throw new IllegalArgumentException("El precio nuevo es idéntico al precio actual.");
+        }
+
+        priceHistoryRepository.save(ServicePriceHistory.builder()
+            .service(service)
+            .precioAnterior(precioAnterior)
+            .precioNuevo(precioNuevo)
+            .build());
+
+        service.setPrice(precioNuevo);
+        LegalService updated = serviceRepository.save(service);
+
+        log.info("Precio actualizado — servicio ID={}: {} → {}", id, precioAnterior, request.getPrecio());
+        return mapToResponse(updated);
+    }
+
+    /**
+     * Retorna el historial de cambios de precio de un servicio, del más reciente al más antiguo.
+     *
+     * @param id ID del servicio
+     * @return lista de ServicePriceHistoryDTO ordenada por fecha DESC
+     * @throws ResourceNotFoundException si el servicio no existe
+     */
+    @Transactional(readOnly = true)
+    public List<ServicePriceHistoryDTO> getPriceHistory(Long id) {
+        if (!serviceRepository.existsById(id)) {
+            log.warn("Servicio no encontrado para consultar historial de precios, ID: {}", id);
+            throw new ResourceNotFoundException("Servicio con ID " + id + " no encontrado");
+        }
+
+        return priceHistoryRepository.findByServiceIdOrderByFechaCambioDesc(id).stream()
+            .map(this::mapToHistoryDTO)
+            .collect(Collectors.toList());
+    }
+
+    private ServicePriceHistoryDTO mapToHistoryDTO(ServicePriceHistory history) {
+        return ServicePriceHistoryDTO.builder()
+            .id(history.getId())
+            .servicioId(history.getService().getId())
+            .nombreServicio(history.getService().getName())
+            .precioAnterior(history.getPrecioAnterior())
+            .precioNuevo(history.getPrecioNuevo())
+            .fechaCambio(history.getFechaCambio())
+            .build();
     }
 
     /**

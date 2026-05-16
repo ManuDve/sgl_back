@@ -29,7 +29,7 @@ import static org.mockito.Mockito.*;
  * Tests unitarios para ServiceService.
  * Utiliza Mockito para aislar la lógica de negocio.
  *
- * Historias: SGL-052 ADM-SERV-CRUD, SGL-018 AG-SELECT-MAT
+ * Historias: SGL-052 ADM-SERV-CRUD, SGL-018 AG-SELECT-MAT, SGL-053 ADM-SERV-PRICE
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ServiceService Tests")
@@ -37,6 +37,9 @@ class LegalServiceServiceTest {
 
     @Mock
     private LegalServiceRepository serviceRepository;
+
+    @Mock
+    private cl.sgl.repository.ServicePriceHistoryRepository priceHistoryRepository;
 
     @InjectMocks
     private LegalServiceService legalServiceService;
@@ -332,5 +335,92 @@ class LegalServiceServiceTest {
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    // ── SGL-053 ADM-SERV-PRICE ────────────────────────────────
+
+    @Test
+    @DisplayName("updatePrice guarda historial y retorna servicio con precio actualizado")
+    void testUpdatePrice_Exitoso() {
+        when(serviceRepository.findById(1L)).thenReturn(Optional.of(testService));
+        when(serviceRepository.save(any(LegalService.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(priceHistoryRepository.save(any(cl.sgl.entity.ServicePriceHistory.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        cl.sgl.dto.UpdateServicePriceRequest request =
+            new cl.sgl.dto.UpdateServicePriceRequest(650000L);
+
+        LegalServiceResponse result = legalServiceService.updatePrice(1L, request);
+
+        assertEquals(BigDecimal.valueOf(650000L), result.getPrice());
+        verify(priceHistoryRepository).save(any(cl.sgl.entity.ServicePriceHistory.class));
+        verify(serviceRepository).save(any(LegalService.class));
+    }
+
+    @Test
+    @DisplayName("updatePrice lanza IllegalArgumentException si el precio es idéntico al actual")
+    void testUpdatePrice_PrecioIdentico() {
+        when(serviceRepository.findById(1L)).thenReturn(Optional.of(testService));
+
+        // El testService tiene precio 500000
+        cl.sgl.dto.UpdateServicePriceRequest request =
+            new cl.sgl.dto.UpdateServicePriceRequest(500000L);
+
+        assertThrows(IllegalArgumentException.class, () ->
+            legalServiceService.updatePrice(1L, request));
+
+        verify(priceHistoryRepository, never()).save(any());
+        verify(serviceRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updatePrice lanza ResourceNotFoundException si el servicio no existe")
+    void testUpdatePrice_ServicioNoEncontrado() {
+        when(serviceRepository.findById(99L)).thenReturn(Optional.empty());
+
+        cl.sgl.dto.UpdateServicePriceRequest request =
+            new cl.sgl.dto.UpdateServicePriceRequest(600000L);
+
+        assertThrows(cl.sgl.exception.ResourceNotFoundException.class, () ->
+            legalServiceService.updatePrice(99L, request));
+
+        verify(priceHistoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("getPriceHistory retorna historial ordenado del más reciente al más antiguo")
+    void testGetPriceHistory_Exitoso() {
+        cl.sgl.entity.ServicePriceHistory entry1 = cl.sgl.entity.ServicePriceHistory.builder()
+            .id(2L).service(testService)
+            .precioAnterior(new BigDecimal("500000")).precioNuevo(new BigDecimal("550000"))
+            .fechaCambio(java.time.LocalDateTime.now().minusDays(1))
+            .build();
+        cl.sgl.entity.ServicePriceHistory entry2 = cl.sgl.entity.ServicePriceHistory.builder()
+            .id(1L).service(testService)
+            .precioAnterior(new BigDecimal("450000")).precioNuevo(new BigDecimal("500000"))
+            .fechaCambio(java.time.LocalDateTime.now().minusDays(10))
+            .build();
+
+        when(serviceRepository.existsById(1L)).thenReturn(true);
+        when(priceHistoryRepository.findByServiceIdOrderByFechaCambioDesc(1L))
+            .thenReturn(List.of(entry1, entry2));
+
+        List<cl.sgl.dto.ServicePriceHistoryDTO> result = legalServiceService.getPriceHistory(1L);
+
+        assertEquals(2, result.size());
+        assertEquals(new BigDecimal("550000"), result.get(0).getPrecioNuevo()); // más reciente primero
+        assertEquals(new BigDecimal("500000"), result.get(1).getPrecioNuevo());
+        assertEquals("Divorcio Contencioso", result.get(0).getNombreServicio());
+    }
+
+    @Test
+    @DisplayName("getPriceHistory lanza ResourceNotFoundException si el servicio no existe")
+    void testGetPriceHistory_ServicioNoEncontrado() {
+        when(serviceRepository.existsById(99L)).thenReturn(false);
+
+        assertThrows(cl.sgl.exception.ResourceNotFoundException.class, () ->
+            legalServiceService.getPriceHistory(99L));
+
+        verify(priceHistoryRepository, never()).findByServiceIdOrderByFechaCambioDesc(any());
     }
 }

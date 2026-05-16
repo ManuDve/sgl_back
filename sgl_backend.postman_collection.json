@@ -136,13 +136,7 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{adminToken}}",
-                  "type": "string"
-                }
-              ]
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
             },
             "method": "DELETE",
             "header": [],
@@ -150,6 +144,42 @@
               "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "services", "{{serviceId}}"]
+            }
+          }
+        },
+        {
+          "name": "PATCH Actualizar precio de servicio",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"precio\": 450000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}/precio",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "services", "{{serviceId}}", "precio"]
+            }
+          }
+        },
+        {
+          "name": "GET Historial de precios de servicio",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}/historial-precios",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "services", "{{serviceId}}", "historial-precios"]
             }
           }
         }

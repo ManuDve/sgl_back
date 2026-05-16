@@ -3,6 +3,7 @@ package cl.sgl.exception;
 import cl.sgl.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,6 +41,23 @@ public class GlobalExceptionHandler {
         );
         response.setData(errors);
 
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    /**
+     * Maneja errores de deserialización JSON: tipo incorrecto, valor malformado, body vacío.
+     * Evita que el error genérico de Jackson llegue como 500.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            WebRequest request) {
+
+        ApiResponse<Void> response = ApiResponse.error(
+            HttpStatus.BAD_REQUEST.value(),
+            "El valor enviado no es válido. El campo 'precio' debe ser un número entero en pesos chilenos (sin decimales, mínimo $5.000)."
+        );
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
