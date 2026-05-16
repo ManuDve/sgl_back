@@ -82,6 +82,25 @@ public class AppointmentService {
         return mapToDetail(appointment);
     }
 
+    /**
+     * Retorna el detalle de un agendamiento por su idExterno (uso público — pantalla de confirmación).
+     *
+     * @param idExterno identificador externo en formato AG-XXXX-NNNN
+     * @return DTO con todos los campos
+     * @throws ResourceNotFoundException si no existe
+     */
+    @Transactional(readOnly = true)
+    public AppointmentDetailDTO getByIdExterno(String idExterno) {
+        Appointment appointment = appointmentRepository.findByIdExterno(idExterno)
+            .orElseThrow(() -> {
+                log.warn("Agendamiento no encontrado con idExterno: {}", idExterno);
+                return new ResourceNotFoundException("Agendamiento '" + idExterno + "' no encontrado");
+            });
+
+        log.debug("Detalle público de agendamiento idExterno={}", idExterno);
+        return mapToDetail(appointment);
+    }
+
     private AppointmentDetailDTO mapToDetail(Appointment appointment) {
         return AppointmentDetailDTO.builder()
             .id(appointment.getId())

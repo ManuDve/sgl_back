@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -34,6 +35,7 @@ import java.util.Map;
  *
  * Rutas:
  * - POST /api/appointments                                   → crear agendamiento
+ * - GET  /api/appointments/{idExterno}                       → detalle público de agendamiento
  * - GET  /api/appointments/ping                              → health check
  * - GET  /api/appointments/hours-available?date=...          → horas disponibles
  * - GET  /api/appointments/days-available?from=...&days=30   → días hábiles disponibles
@@ -82,6 +84,31 @@ public class PublicAppointmentController {
             created
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{idExterno}")
+    @Operation(
+        summary = "Detalle público de agendamiento",
+        description = "Retorna el detalle de un agendamiento por su idExterno (AG-XXXX-NNNN). Usado en la pantalla de confirmación. No requiere autenticación."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "Agendamiento encontrado",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Agendamiento no encontrado")
+    })
+    public ResponseEntity<ApiResponse<AppointmentDetailDTO>> getByIdExterno(
+        @Parameter(description = "ID externo en formato AG-XXXX-NNNN", example = "AG-ABCD-0001")
+        @PathVariable String idExterno) {
+
+        log.info("GET /api/appointments/{}", idExterno);
+        AppointmentDetailDTO detail = appointmentService.getByIdExterno(idExterno);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Agendamiento obtenido exitosamente",
+            detail
+        ));
     }
 
     @GetMapping("/ping")

@@ -36,4 +36,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
      * Usado para prevenir doble reserva del mismo slot.
      */
     boolean existsByFechaAndHoraAndEstadoNot(LocalDate fecha, LocalTime hora, AppointmentStatus estado);
+
+    java.util.Optional<Appointment> findByIdExterno(String idExterno);
 }
