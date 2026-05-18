@@ -188,7 +188,7 @@ public class AppointmentService {
             .idExterno(idExterno)
             .nombreCliente(request.getNombreCliente().trim())
             .email(request.getEmail().trim().toLowerCase())
-            .telefono(request.getTelefono().trim())
+            .telefono(request.getTelefono().replaceAll("\\s+", ""))
             .service(servicio)
             .fecha(request.getFecha())
             .hora(request.getHora())

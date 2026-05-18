@@ -28,13 +28,14 @@ public class CreateAppointmentRequest {
     private String email;
 
     @NotBlank(message = "El teléfono es obligatorio")
+    @Pattern(regexp = "\\+56\\s*9(\\s*\\d){8}", message = "El teléfono debe comenzar con +569 seguido de 8 dígitos (ej: +56912345678)")
     private String telefono;
 
     @NotNull(message = "El servicio es obligatorio")
     private Long serviceId;
 
     @NotNull(message = "La fecha es obligatoria")
-    @FutureOrPresent(message = "La fecha no puede ser anterior a hoy")
+    @Future(message = "La fecha debe ser posterior a hoy")
     private LocalDate fecha;
 
     @NotNull(message = "La hora es obligatoria")

@@ -36,7 +36,7 @@ public class GlobalExceptionHandler {
 
         ApiResponse<Map<String, String>> response = ApiResponse.error(
             HttpStatus.BAD_REQUEST.value(),
-            "Validation failed",
+            "Los datos enviados son inválidos",
             errors.toString()
         );
         response.setData(errors);
@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
 
         ApiResponse<Void> response = ApiResponse.error(
             HttpStatus.BAD_REQUEST.value(),
-            "El valor enviado no es válido. El campo 'precio' debe ser un número entero en pesos chilenos (sin decimales, mínimo $5.000)."
+            "El cuerpo de la solicitud contiene valores inválidos o con formato incorrecto."
         );
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
