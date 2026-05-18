@@ -47,6 +47,9 @@ class AppointmentServiceTest {
     @Mock
     private LegalServiceRepository legalServiceRepository;
 
+    @Mock
+    private EmailService emailService;
+
     @InjectMocks
     private AppointmentService appointmentService;
 

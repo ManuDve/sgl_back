@@ -46,6 +46,7 @@ public class AppointmentService {
 
     private final AppointmentRepository appointmentRepository;
     private final LegalServiceRepository legalServiceRepository;
+    private final EmailService emailService;
 
     /**
      * Lista agendamientos filtrados por estado.
@@ -201,6 +202,8 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
         log.info("Agendamiento creado: {} | {} {} | {}", saved.getIdExterno(),
             saved.getFecha(), saved.getHora(), saved.getNombreCliente());
+
+        emailService.sendConfirmationEmail(saved);
 
         return mapToDetail(saved);
     }

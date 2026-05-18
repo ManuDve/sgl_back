@@ -41,5 +41,10 @@ app:
     # Origen permitido. En producción, sobreescribir con variable de entorno ALLOWED_ORIGIN.
     allowed-origin: ${ALLOWED_ORIGIN:http://localhost:4321}
 
+mailtrap:
+  api:
+    token: ${MAILTRAP_API_TOKEN:}
+    from-email: ${MAILTRAP_FROM_EMAIL:no-reply@manudavid.cl}
+
 server:
   port: 8080
