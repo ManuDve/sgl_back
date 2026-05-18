@@ -36,5 +36,10 @@ springdoc:
     path: /swagger-ui.html
     enabled: true
 
+app:
+  cors:
+    # Origen permitido. En producción, sobreescribir con variable de entorno ALLOWED_ORIGIN.
+    allowed-origin: ${ALLOWED_ORIGIN:http://localhost:4321}
+
 server:
   port: 8080
