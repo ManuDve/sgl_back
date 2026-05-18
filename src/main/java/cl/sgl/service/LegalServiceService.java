@@ -1,5 +1,6 @@
 package cl.sgl.service;
 
+import cl.sgl.config.InputSanitizer;
 import cl.sgl.dto.CreateLegalServiceRequest;
 import cl.sgl.dto.LegalServiceResponse;
 import cl.sgl.dto.ServicePriceHistoryDTO;
@@ -53,8 +54,8 @@ public class LegalServiceService {
 
         // Crear la entidad
         LegalService service = LegalService.builder()
-            .name(request.getName())
-            .description(request.getDescription())
+            .name(InputSanitizer.sanitize(request.getName()))
+            .description(InputSanitizer.sanitize(request.getDescription()))
             .price(request.getPrice())
             .active(request.getActive() != null ? request.getActive() : true)
             .build();
@@ -159,10 +160,10 @@ public class LegalServiceService {
 
         // Actualizar solo los campos proporcionados
         if (request.getName() != null) {
-            service.setName(request.getName());
+            service.setName(InputSanitizer.sanitize(request.getName()));
         }
         if (request.getDescription() != null) {
-            service.setDescription(request.getDescription());
+            service.setDescription(InputSanitizer.sanitize(request.getDescription()));
         }
         if (request.getPrice() != null) {
             service.setPrice(request.getPrice());

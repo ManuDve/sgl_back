@@ -1,5 +1,6 @@
 package cl.sgl.service;
 
+import cl.sgl.config.InputSanitizer;
 import cl.sgl.dto.AppointmentCalendarDTO;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
@@ -186,7 +187,7 @@ public class AppointmentService {
 
         Appointment appointment = Appointment.builder()
             .idExterno(idExterno)
-            .nombreCliente(request.getNombreCliente().trim())
+            .nombreCliente(InputSanitizer.sanitize(request.getNombreCliente().trim()))
             .email(request.getEmail().trim().toLowerCase())
             .telefono(request.getTelefono().replaceAll("\\s+", ""))
             .service(servicio)
