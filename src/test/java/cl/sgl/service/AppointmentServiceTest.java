@@ -414,14 +414,16 @@ class AppointmentServiceTest {
         when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
         when(appointmentRepository.existsByFechaAndHoraAndEstadoNot(
             req.getFecha(), req.getHora(), AppointmentStatus.CANCELLED)).thenReturn(false);
-        when(appointmentRepository.count()).thenReturn(5L);
-        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> {
+        // saveAndFlush: primer save — asigna el id de BD
+        when(appointmentRepository.saveAndFlush(any(Appointment.class))).thenAnswer(inv -> {
             Appointment a = inv.getArgument(0);
             a.setId(6L);
             a.setCreatedAt(LocalDateTime.now());
             a.setUpdatedAt(LocalDateTime.now());
             return a;
         });
+        // save: segundo save — persiste el idExterno definitivo
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         AppointmentDetailDTO result = appointmentService.createAppointment(req);
 
@@ -429,8 +431,12 @@ class AppointmentServiceTest {
         assertNotNull(result.getIdExterno());
         assertTrue(result.getIdExterno().matches("AG-[A-Z]{4}-\\d{4}"),
             "idExterno debe tener formato AG-XXXX-NNNN, fue: " + result.getIdExterno());
+        // El número de secuencia debe coincidir con el ID de BD asignado (6)
+        assertTrue(result.getIdExterno().endsWith("-0006"),
+            "El sufijo numérico debe ser el ID de BD (0006), fue: " + result.getIdExterno());
         assertEquals("PENDING", result.getEstado());
         assertEquals("Divorcio Contencioso", result.getMateria());
+        verify(appointmentRepository).saveAndFlush(any(Appointment.class));
         verify(appointmentRepository).save(any(Appointment.class));
         // El email NO se envía al crear — solo al confirmar el pago
         verify(emailService, never()).sendConfirmationEmail(any(Appointment.class));

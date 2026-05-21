@@ -122,6 +122,9 @@ public class WebpayController {
             return;
         }
 
+        // Intentar extraer el buyOrder del token antes del commit (por si commit() falla)
+        String idExternoFallback = resolveIdFromTbkToken(tokenWs);
+
         try {
             WebpayPlusTransactionCommitResponse tbkResponse = webpayTransaction.commit(tokenWs);
             String idExterno = tbkResponse.getBuyOrder();
@@ -147,9 +150,9 @@ public class WebpayController {
 
         } catch (Exception e) {
             log.error("Error en commit Webpay — token: {}, error: {}", tokenWs, e.getMessage());
-            // Intentar incluir el id para que la página de error pueda ofrecer reintentar
-            String fallbackId = (tbkOrderId != null) ? tbkOrderId : "";
-            response.sendRedirect(frontendUrl + "/confirmacion?id=" + fallbackId + "&pago=error");
+            // Usar el buyOrder obtenido antes del commit para que el frontend pueda ofrecer reintentar
+            String safeId = (tbkOrderId != null && !tbkOrderId.isBlank()) ? tbkOrderId : idExternoFallback;
+            response.sendRedirect(frontendUrl + "/confirmacion?id=" + safeId + "&pago=error");
         }
     }
 

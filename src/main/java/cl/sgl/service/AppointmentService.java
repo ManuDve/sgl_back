@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -184,10 +185,13 @@ public class AppointmentService {
                 "El horario " + request.getHora() + " del " + request.getFecha() + " ya no está disponible.");
         }
 
-        String idExterno = generateIdExterno();
+        // Primer save con un placeholder único para obtener el ID de BD asignado por IDENTITY.
+        // El idExterno definitivo se genera en el segundo save usando ese ID como secuencia,
+        // garantizando que sea monotónico y nunca se repita aunque haya deletes o tests.
+        String tempId = "T-" + UUID.randomUUID().toString().substring(0, 13); // único, cabe en length=20
 
         Appointment appointment = Appointment.builder()
-            .idExterno(idExterno)
+            .idExterno(tempId)
             .nombreCliente(InputSanitizer.sanitize(request.getNombreCliente().trim()))
             .email(request.getEmail().trim().toLowerCase())
             .telefono(request.getTelefono().replaceAll("\\s+", ""))
@@ -199,7 +203,10 @@ public class AppointmentService {
             .aceptaTerminos(request.getAceptaTerminos())
             .build();
 
-        Appointment saved = appointmentRepository.save(appointment);
+        Appointment saved = appointmentRepository.saveAndFlush(appointment);
+        saved.setIdExterno(generateIdExterno(saved.getId()));
+        saved = appointmentRepository.save(saved);
+
         log.info("Agendamiento creado: {} | {} {} | {}", saved.getIdExterno(),
             saved.getFecha(), saved.getHora(), saved.getNombreCliente());
 
@@ -309,14 +316,13 @@ public class AppointmentService {
         return mapToDetail(saved);
     }
 
-    /** Genera un idExterno en formato AG-XXXX-NNNN. */
-    private String generateIdExterno() {
+    /** Genera un idExterno en formato AG-XXXX-NNNN usando el ID de BD como secuencia. */
+    private String generateIdExterno(Long dbId) {
         StringBuilder letras = new StringBuilder(4);
         for (int i = 0; i < 4; i++) {
             letras.append((char) ('A' + ThreadLocalRandom.current().nextInt(26)));
         }
-        long seq = appointmentRepository.count() + 1;
-        return String.format("AG-%s-%04d", letras, seq);
+        return String.format("AG-%s-%04d", letras, dbId);
     }
 
     /**
