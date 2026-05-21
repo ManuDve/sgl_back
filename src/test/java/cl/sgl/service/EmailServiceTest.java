@@ -71,7 +71,7 @@ class EmailServiceTest {
         assertEquals("juan.perez@example.cl", mail.getTo().get(0).getEmail());
         assertEquals("no-reply@sgl.cl",        mail.getFrom().getEmail());
         assertEquals("Estudio Jurídico SGL",  mail.getFrom().getName());
-        assertTrue(mail.getSubject().contains("Confirmación"));
+        assertTrue(mail.getSubject().contains("Pago confirmado"));
         assertTrue(mail.getHtml().contains("AG-ABCD-0001"),  "El HTML debe incluir el idExterno");
         assertTrue(mail.getHtml().contains("Juan Pérez"),    "El HTML debe incluir el nombre del cliente");
         assertTrue(mail.getHtml().contains("Divorcio"),      "El HTML debe incluir el nombre del servicio");

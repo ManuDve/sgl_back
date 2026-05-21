@@ -49,6 +49,7 @@ class AppointmentServiceTest {
 
     @Mock
     private EmailService emailService;
+    // Nota: emailService es mock — por defecto sendConfirmationEmail() no hace nada (void).
 
     @InjectMocks
     private AppointmentService appointmentService;
@@ -251,10 +252,11 @@ class AppointmentServiceTest {
 
         assertEquals("CONFIRMED",    result.getEstado());
         assertEquals("TXN-12345678", result.getCodigoTransaccion());
-        // montoConfirmado debe ser igual al monto del agendamiento
         assertEquals(pendingAppointment.getMonto(), result.getMontoConfirmado());
         assertNotNull(result.getFechaPago());
         verify(appointmentRepository).save(any(Appointment.class));
+        // El email se envía al confirmar pago manual
+        verify(emailService).sendConfirmationEmail(any(Appointment.class));
     }
 
     @Test
@@ -430,6 +432,8 @@ class AppointmentServiceTest {
         assertEquals("PENDING", result.getEstado());
         assertEquals("Divorcio Contencioso", result.getMateria());
         verify(appointmentRepository).save(any(Appointment.class));
+        // El email NO se envía al crear — solo al confirmar el pago
+        verify(emailService, never()).sendConfirmationEmail(any(Appointment.class));
     }
 
     @Test
@@ -538,6 +542,39 @@ class AppointmentServiceTest {
         LocalDate sabado = LocalDate.of(2026, 5, 9);
         List<String> result = appointmentService.getAvailableDays(sabado, 2);
         assertTrue(result.isEmpty());
+    }
+
+    // ── SGL-080 PAY-POC (Webpay) ─────────────────────────────────
+
+    @Test
+    @DisplayName("confirmWebpayPayment cambia estado a CONFIRMED y envía email")
+    void testConfirmWebpayPayment_Exitoso() {
+        when(appointmentRepository.findByIdExterno("AG-2026-0001"))
+            .thenReturn(Optional.of(pendingAppointment));
+        when(appointmentRepository.save(any(Appointment.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        appointmentService.confirmWebpayPayment(
+            "AG-2026-0001", "AUTH-123456", new BigDecimal("500000"));
+
+        assertEquals(AppointmentStatus.CONFIRMED, pendingAppointment.getEstado());
+        assertEquals("AUTH-123456", pendingAppointment.getCodigoTransaccion());
+        assertNotNull(pendingAppointment.getFechaPago());
+        verify(appointmentRepository).save(any(Appointment.class));
+        verify(emailService).sendConfirmationEmail(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("confirmWebpayPayment lanza ResourceNotFoundException si no existe")
+    void testConfirmWebpayPayment_NotFound() {
+        when(appointmentRepository.findByIdExterno("AG-XXXX-9999"))
+            .thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+            appointmentService.confirmWebpayPayment(
+                "AG-XXXX-9999", "AUTH-999", new BigDecimal("500000")));
+
+        verify(emailService, never()).sendConfirmationEmail(any());
     }
 
     // ── SGL-049 ADM-CAL ───────────────────────────────────────────
