@@ -203,9 +203,43 @@ public class AppointmentService {
         log.info("Agendamiento creado: {} | {} {} | {}", saved.getIdExterno(),
             saved.getFecha(), saved.getHora(), saved.getNombreCliente());
 
-        emailService.sendConfirmationEmail(saved);
+        // Email de confirmación se envía solo cuando el pago es aprobado,
+        // no al crear el agendamiento (que queda en estado PENDING).
 
         return mapToDetail(saved);
+    }
+
+    /**
+     * Confirma el pago de un agendamiento vía Transbank WebpayPlus.
+     * Registra el código de autorización del banco y cambia el estado a CONFIRMED.
+     *
+     * @param idExterno         identificador externo del agendamiento (buyOrder en Transbank)
+     * @param authorizationCode código de autorización retornado por Transbank
+     * @param monto             monto confirmado por Transbank
+     * @throws ResourceNotFoundException si no existe el agendamiento
+     * @throws IllegalArgumentException  si el agendamiento está CANCELLED
+     *
+     * Historia: SGL-080 PAY-POC
+     */
+    @Transactional
+    public void confirmWebpayPayment(String idExterno, String authorizationCode, BigDecimal monto) {
+        Appointment appointment = appointmentRepository.findByIdExterno(idExterno)
+            .orElseThrow(() -> new ResourceNotFoundException(
+                "Agendamiento '" + idExterno + "' no encontrado"));
+
+        if (AppointmentStatus.CANCELLED.equals(appointment.getEstado())) {
+            throw new IllegalArgumentException(
+                "No se puede confirmar el pago de un agendamiento cancelado.");
+        }
+
+        appointment.setCodigoTransaccion(authorizationCode);
+        appointment.setMontoConfirmado(monto);
+        appointment.setFechaPago(LocalDateTime.now());
+        appointment.setEstado(AppointmentStatus.CONFIRMED);
+
+        Appointment saved = appointmentRepository.save(appointment);
+        log.info("Pago Webpay confirmado — idExterno: {}, auth: {}", idExterno, authorizationCode);
+        emailService.sendConfirmationEmail(saved);
     }
 
     /**
@@ -243,6 +277,7 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
         log.info("Pago confirmado — ID={} | codigo={} | monto={}",
             id, request.getCodigoTransaccion(), appointment.getMonto());
+        emailService.sendConfirmationEmail(saved);
 
         return mapToDetail(saved);
     }

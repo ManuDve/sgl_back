@@ -63,7 +63,7 @@ public class EmailService {
             MailtrapMail mail = MailtrapMail.builder()
                 .from(new Address(fromEmail, FROM_NAME))
                 .to(List.of(new Address(appointment.getEmail())))
-                .subject("Confirmación de consulta — SGL")
+                .subject("Pago confirmado — tu consulta está agendada")
                 .html(buildHtml(appointment))
                 .build();
 
@@ -96,17 +96,6 @@ public class EmailService {
         ".lbl{color:#888;width:40%;}" +
         ".val{font-weight:bold;text-align:right;}" +
         ".id{background:#0A0A0A;color:#C9A84C;font-weight:bold;font-size:14px;display:inline-block;padding:3px 10px;border-radius:4px;}" +
-        ".pago{background:#1A1A1A;border:1px solid rgba(201,168,76,0.4);border-radius:8px;overflow:hidden;margin:0 0 24px;}" +
-        ".pago-hdr{padding:14px 20px;border-bottom:1px solid rgba(201,168,76,0.2);}" +
-        ".pago-hdr p{margin:0;font-size:13px;font-weight:bold;color:#F5F5F5;}" +
-        ".pago-hdr span{font-size:11px;color:#6B6B6B;}" +
-        ".pago-body table{width:100%;border-collapse:collapse;padding:4px 20px;}" +
-        ".pago-body tr td{padding:9px 20px;border-bottom:1px solid rgba(201,168,76,0.1);font-size:13px;}" +
-        ".pago-body tr:last-child td{border-bottom:none;}" +
-        ".plbl{color:#6B6B6B;}" +
-        ".pval{font-weight:bold;text-align:right;color:#F5F5F5;}" +
-        ".gold{color:#C9A84C !important;}" +
-        ".aviso{margin:4px 20px 16px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.25);border-radius:6px;padding:10px 14px;font-size:12px;color:#C9A84C;line-height:1.5;}" +
         ".note{font-size:13px;color:#555;line-height:1.6;margin:0 0 14px;}" +
         ".ftr{background:#1A1A1A;padding:18px 32px;text-align:center;}" +
         ".ftr p{color:#6B6B6B;font-size:11px;margin:3px 0;}" +
@@ -114,33 +103,18 @@ public class EmailService {
         "<div class=\"hdr\"><p class=\"logo\">SGL</p><p class=\"sub\">Estudio Jurídico · Santiago, Chile</p></div>" +
         "<div class=\"bdy\">" +
         "<p style=\"font-size:16px;color:#222;margin:0 0 14px;\">Estimado/a <strong>{nombre}</strong>,</p>" +
-        "<p class=\"note\">Tu consulta ha sido agendada exitosamente. Aquí están los detalles:</p>" +
+        "<p class=\"note\">Tu pago fue aprobado y tu consulta ha quedado <strong style=\"color:#C9A84C;\">confirmada</strong>. Aquí están los detalles:</p>" +
 
-        // ── Card resumen de cita ──
         "<div class=\"box\"><table>" +
         "<tr><td class=\"lbl\">N° de cita</td><td class=\"val\"><span class=\"id\">{idExterno}</span></td></tr>" +
         "<tr><td class=\"lbl\">Servicio</td><td class=\"val\">{servicio}</td></tr>" +
         "<tr><td class=\"lbl\">Fecha</td><td class=\"val\">{fecha}</td></tr>" +
         "<tr><td class=\"lbl\">Hora</td><td class=\"val\">{hora}</td></tr>" +
-        "<tr><td class=\"lbl\">Total a pagar</td><td class=\"val\" style=\"color:#C9A84C;\">{monto}</td></tr>" +
+        "<tr><td class=\"lbl\">Monto pagado</td><td class=\"val\" style=\"color:#C9A84C;\">{monto}</td></tr>" +
+        "<tr><td class=\"lbl\">Código de transacción</td><td class=\"val\" style=\"font-family:monospace;\">{codigoTransaccion}</td></tr>" +
         "</table></div>" +
 
-        // ── Card instrucciones de pago (igual al frontend) ──
-        "<div class=\"pago\">" +
-        "<div class=\"pago-hdr\"><p>Instrucciones de pago</p><span>Transferencia bancaria &mdash; plazo 24 horas h&aacute;biles</span></div>" +
-        "<div class=\"pago-body\"><table>" +
-        "<tr><td class=\"plbl\">Banco</td><td class=\"pval\">Banco Estado</td></tr>" +
-        "<tr><td class=\"plbl\">Tipo de cuenta</td><td class=\"pval\">Cuenta corriente</td></tr>" +
-        "<tr><td class=\"plbl\">N&uacute;mero</td><td class=\"pval\">123456789</td></tr>" +
-        "<tr><td class=\"plbl\">RUT</td><td class=\"pval\">76.XXX.XXX-X</td></tr>" +
-        "<tr><td class=\"plbl\">Nombre</td><td class=\"pval\">Estudio Jur&iacute;dico SGL</td></tr>" +
-        "<tr><td class=\"plbl\">Monto exacto</td><td class=\"pval gold\">{monto}</td></tr>" +
-        "<tr><td class=\"plbl\">Referencia</td><td class=\"pval gold\">{idExterno}</td></tr>" +
-        "</table></div>" +
-        "<div class=\"aviso\"><strong>Importante:</strong> realiza la transferencia dentro de las pr&oacute;ximas 24 horas h&aacute;biles. " +
-        "Usa el ID de tu cita <strong>{idExterno}</strong> como referencia/asunto para que podamos identificar tu pago.</div>" +
-        "</div>" +
-
+        "<p class=\"note\">Si necesitas cancelar o reagendar tu cita, contáctanos con al menos 24 horas de anticipación.</p>" +
         "<p class=\"note\">¿Tienes dudas? Escríbenos a <a href=\"mailto:contacto@sglabogados.cl\" " +
         "style=\"color:#C9A84C;\">contacto@sglabogados.cl</a></p>" +
         "</div>" +
@@ -154,14 +128,19 @@ public class EmailService {
         String hora  = appointment.getHora()
             .format(DateTimeFormatter.ofPattern("HH:mm"));
 
+        String codigo = appointment.getCodigoTransaccion() != null
+            ? appointment.getCodigoTransaccion()
+            : "—";
+
         return HTML_TEMPLATE
-            .replace("{nombre}",    appointment.getNombreCliente())
-            .replace("{idExterno}", appointment.getIdExterno())
-            .replace("{servicio}",  appointment.getService().getName())
-            .replace("{fecha}",     fecha)
-            .replace("{hora}",      hora)
-            .replace("{monto}",     formatCLP(appointment.getMonto()))
-            .replace("{anio}",      String.valueOf(java.time.Year.now().getValue()));
+            .replace("{nombre}",             appointment.getNombreCliente())
+            .replace("{idExterno}",          appointment.getIdExterno())
+            .replace("{servicio}",           appointment.getService().getName())
+            .replace("{fecha}",              fecha)
+            .replace("{hora}",               hora)
+            .replace("{monto}",              formatCLP(appointment.getMonto()))
+            .replace("{codigoTransaccion}",  codigo)
+            .replace("{anio}",               String.valueOf(java.time.Year.now().getValue()));
     }
 
     private static String formatCLP(BigDecimal monto) {
