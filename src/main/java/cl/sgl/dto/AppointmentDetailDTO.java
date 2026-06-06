@@ -34,6 +34,9 @@ public class AppointmentDetailDTO {
     private String materia;
     private String descripcionServicio;
 
+    // Notas del cliente al agendar
+    private String descripcion;
+
     // Cita
     private LocalDate fecha;
     private LocalTime hora;

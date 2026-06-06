@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.validator.constraints.Length;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -44,4 +45,7 @@ public class CreateAppointmentRequest {
     @NotNull(message = "Debes aceptar los términos y condiciones")
     @AssertTrue(message = "Debes aceptar los términos y condiciones")
     private Boolean aceptaTerminos;
+
+    @Length(max = 500, message = "La descripción no puede superar los 500 caracteres")
+    private String descripcion;
 }

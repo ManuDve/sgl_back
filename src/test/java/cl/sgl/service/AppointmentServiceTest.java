@@ -758,6 +758,105 @@ class AppointmentServiceTest {
         assertEquals(9, result.size()); // todos libres
     }
 
+    // ── SGL-019 AG-DESC ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("createAppointment persiste descripcion cuando se proporciona")
+    void testCreateAppointment_ConDescripcion() {
+        CreateAppointmentRequest req = CreateAppointmentRequest.builder()
+            .nombreCliente("Ana Martínez López")
+            .email("ana@example.cl")
+            .telefono("+56912345678")
+            .serviceId(1L)
+            .fecha(LocalDate.now().plusDays(3))
+            .hora(LocalTime.of(10, 0))
+            .aceptaTerminos(true)
+            .descripcion("Consulta sobre divorcio por mutuo acuerdo")
+            .build();
+
+        when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoIn(
+            eq(req.getFecha()), eq(req.getHora()), anyList())).thenReturn(false);
+        when(appointmentRepository.saveAndFlush(any(Appointment.class))).thenAnswer(inv -> {
+            Appointment a = inv.getArgument(0);
+            a.setId(7L);
+            a.setCreatedAt(LocalDateTime.now());
+            a.setUpdatedAt(LocalDateTime.now());
+            return a;
+        });
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.createAppointment(req);
+
+        assertNotNull(result.getDescripcion());
+        assertEquals("Consulta sobre divorcio por mutuo acuerdo", result.getDescripcion());
+    }
+
+    @Test
+    @DisplayName("createAppointment permite descripcion nula (campo opcional)")
+    void testCreateAppointment_SinDescripcion() {
+        CreateAppointmentRequest req = buildRequest(); // sin descripcion
+
+        when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoIn(
+            eq(req.getFecha()), eq(req.getHora()), anyList())).thenReturn(false);
+        when(appointmentRepository.saveAndFlush(any(Appointment.class))).thenAnswer(inv -> {
+            Appointment a = inv.getArgument(0);
+            a.setId(8L);
+            a.setCreatedAt(LocalDateTime.now());
+            a.setUpdatedAt(LocalDateTime.now());
+            return a;
+        });
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.createAppointment(req);
+
+        assertNull(result.getDescripcion());
+    }
+
+    @Test
+    @DisplayName("mapToDetail incluye descripcion del agendamiento")
+    void testMapToDetail_IncluyeDescripcion() {
+        Appointment apt = Appointment.builder()
+            .id(1L).idExterno("AG-2026-0001")
+            .nombreCliente("Juan Pérez").email("juan@example.com").telefono("+56912345678")
+            .service(servicio)
+            .fecha(LocalDate.of(2026, 5, 15)).hora(LocalTime.of(10, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .descripcion("Necesito asesoría urgente")
+            .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+            .build();
+
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(apt));
+
+        AppointmentDetailDTO dto = appointmentService.getById(1L);
+
+        assertEquals("Necesito asesoría urgente", dto.getDescripcion());
+    }
+
+    @Test
+    @DisplayName("mapToSummary incluye descripcion del agendamiento")
+    void testMapToSummary_IncluyeDescripcion() {
+        Appointment apt = Appointment.builder()
+            .id(1L).idExterno("AG-2026-0001")
+            .nombreCliente("Juan Pérez").email("juan@example.com").telefono("+56912345678")
+            .service(servicio)
+            .fecha(LocalDate.of(2026, 5, 15)).hora(LocalTime.of(10, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .descripcion("Nota del cliente")
+            .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+            .build();
+
+        when(appointmentRepository.findByEstadoOrderByFechaAscHoraAsc(AppointmentStatus.PENDING))
+            .thenReturn(List.of(apt));
+
+        AppointmentSummaryDTO dto = appointmentService.listByStatus("pending").get(0);
+
+        assertEquals("Nota del cliente", dto.getDescripcion());
+    }
+
     @Test
     @DisplayName("getById incluye descripción del servicio")
     void testGetById_IncluyeDescripcionServicio() {

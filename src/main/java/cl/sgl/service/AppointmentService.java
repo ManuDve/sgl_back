@@ -124,6 +124,7 @@ public class AppointmentService {
             .servicioId(appointment.getService().getId())
             .materia(appointment.getService().getName())
             .descripcionServicio(appointment.getService().getDescription())
+            .descripcion(appointment.getDescripcion())
             .fecha(appointment.getFecha())
             .hora(appointment.getHora())
             .monto(appointment.getMonto())
@@ -193,6 +194,10 @@ public class AppointmentService {
         // garantizando que sea monotónico y nunca se repita aunque haya deletes o tests.
         String tempId = "T-" + UUID.randomUUID().toString().substring(0, 13); // único, cabe en length=20
 
+        String descripcionSanitizada = (request.getDescripcion() != null && !request.getDescripcion().isBlank())
+            ? InputSanitizer.sanitize(request.getDescripcion().trim())
+            : null;
+
         Appointment appointment = Appointment.builder()
             .idExterno(tempId)
             .nombreCliente(InputSanitizer.sanitize(request.getNombreCliente().trim()))
@@ -204,6 +209,7 @@ public class AppointmentService {
             .monto(servicio.getPrice())
             .estado(AppointmentStatus.PENDING)
             .aceptaTerminos(request.getAceptaTerminos())
+            .descripcion(descripcionSanitizada)
             .build();
 
         Appointment saved = appointmentRepository.saveAndFlush(appointment);
@@ -430,6 +436,7 @@ public class AppointmentService {
             .hora(appointment.getHora())
             .monto(appointment.getMonto())
             .estado(appointment.getEstado().name())
+            .descripcion(appointment.getDescripcion())
             .build();
     }
 }

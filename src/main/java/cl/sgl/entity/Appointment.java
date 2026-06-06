@@ -66,6 +66,9 @@ public class Appointment {
     @Builder.Default
     private Boolean aceptaTerminos = false;
 
+    @Column(name = "descripcion", columnDefinition = "TEXT")
+    private String descripcion;
+
     // Campos de confirmación de pago — se rellenan al ejecutar PAY-MANUAL-CONF
     @Column(name = "numero_transaccion", length = 100)
     private String codigoTransaccion;

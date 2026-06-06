@@ -229,7 +229,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombreCliente\": \"Juan Pérez González\",\n  \"email\": \"juan.perez@gmail.com\",\n  \"telefono\": \"+56912345678\",\n  \"serviceId\": 1,\n  \"fecha\": \"2026-06-10\",\n  \"hora\": \"10:00:00\",\n  \"aceptaTerminos\": true\n}"
+              "raw": "{\n  \"nombreCliente\": \"Juan Pérez González\",\n  \"email\": \"juan.perez@gmail.com\",\n  \"telefono\": \"+56912345678\",\n  \"serviceId\": 1,\n  \"fecha\": \"2026-06-10\",\n  \"hora\": \"10:00:00\",\n  \"aceptaTerminos\": true,\n  \"descripcion\": \"Necesito orientación sobre un proceso de divorcio de mutuo acuerdo.\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/appointments",
