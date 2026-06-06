@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -32,10 +33,10 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                                            @Param("cancelado") AppointmentStatus cancelado);
 
     /**
-     * Verifica si existe un agendamiento activo (no cancelado) para la fecha y hora indicadas.
-     * Usado para prevenir doble reserva del mismo slot.
+     * Verifica si existe un agendamiento en estado PENDING o CONFIRMED para la fecha y hora dadas.
+     * Usado para prevenir doble reserva del mismo slot (SGL-030 AG-CONFLICT).
      */
-    boolean existsByFechaAndHoraAndEstadoNot(LocalDate fecha, LocalTime hora, AppointmentStatus estado);
+    boolean existsByFechaAndHoraAndEstadoIn(LocalDate fecha, LocalTime hora, Collection<AppointmentStatus> estados);
 
     java.util.Optional<Appointment> findByIdExterno(String idExterno);
 

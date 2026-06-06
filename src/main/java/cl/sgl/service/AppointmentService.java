@@ -10,6 +10,7 @@ import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
+import cl.sgl.exception.AppointmentConflictException;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
 import cl.sgl.repository.LegalServiceRepository;
@@ -179,10 +180,12 @@ public class AppointmentService {
                 "El servicio '" + servicio.getName() + "' no está disponible actualmente.");
         }
 
-        if (appointmentRepository.existsByFechaAndHoraAndEstadoNot(
-                request.getFecha(), request.getHora(), AppointmentStatus.CANCELLED)) {
-            throw new IllegalArgumentException(
-                "El horario " + request.getHora() + " del " + request.getFecha() + " ya no está disponible.");
+        if (appointmentRepository.existsByFechaAndHoraAndEstadoIn(
+                request.getFecha(), request.getHora(),
+                List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED))) {
+            throw new AppointmentConflictException(
+                "El horario " + request.getHora() + " del " + request.getFecha()
+                + " ya está reservado por otro agendamiento.");
         }
 
         // Primer save con un placeholder único para obtener el ID de BD asignado por IDENTITY.

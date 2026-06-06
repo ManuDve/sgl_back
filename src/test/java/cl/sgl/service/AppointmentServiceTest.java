@@ -9,6 +9,7 @@ import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
+import cl.sgl.exception.AppointmentConflictException;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
 import cl.sgl.repository.LegalServiceRepository;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -412,8 +414,8 @@ class AppointmentServiceTest {
         CreateAppointmentRequest req = buildRequest();
 
         when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
-        when(appointmentRepository.existsByFechaAndHoraAndEstadoNot(
-            req.getFecha(), req.getHora(), AppointmentStatus.CANCELLED)).thenReturn(false);
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoIn(
+            eq(req.getFecha()), eq(req.getHora()), anyList())).thenReturn(false);
         // saveAndFlush: primer save — asigna el id de BD
         when(appointmentRepository.saveAndFlush(any(Appointment.class))).thenAnswer(inv -> {
             Appointment a = inv.getArgument(0);
@@ -443,18 +445,37 @@ class AppointmentServiceTest {
     }
 
     @Test
-    @DisplayName("createAppointment falla si el slot ya está ocupado")
+    @DisplayName("createAppointment falla con 409 si el slot tiene un agendamiento PENDING o CONFIRMED")
     void testCreateAppointment_SlotOcupado() {
         CreateAppointmentRequest req = buildRequest();
 
         when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
-        when(appointmentRepository.existsByFechaAndHoraAndEstadoNot(
-            req.getFecha(), req.getHora(), AppointmentStatus.CANCELLED)).thenReturn(true);
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoIn(
+            eq(req.getFecha()), eq(req.getHora()), anyList())).thenReturn(true);
 
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(AppointmentConflictException.class, () ->
             appointmentService.createAppointment(req));
 
         verify(appointmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAppointment conflicto incluye fecha y hora en el mensaje")
+    void testCreateAppointment_ConflictoMensajeClaro() {
+        CreateAppointmentRequest req = buildRequest();
+
+        when(legalServiceRepository.findById(1L)).thenReturn(Optional.of(servicio));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoIn(
+            eq(req.getFecha()), eq(req.getHora()), anyList())).thenReturn(true);
+
+        AppointmentConflictException ex = assertThrows(AppointmentConflictException.class, () ->
+            appointmentService.createAppointment(req));
+
+        assertTrue(ex.getMessage().contains(req.getHora().toString()),
+            "El mensaje debe incluir la hora conflictiva");
+        assertTrue(ex.getMessage().contains(req.getFecha().toString()),
+            "El mensaje debe incluir la fecha conflictiva");
+        verify(appointmentRepository, never()).saveAndFlush(any());
     }
 
     @Test

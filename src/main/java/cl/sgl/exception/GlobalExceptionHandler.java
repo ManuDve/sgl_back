@@ -96,6 +96,20 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    @ExceptionHandler(AppointmentConflictException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ResponseEntity<ApiResponse<Void>> handleAppointmentConflictException(
+            AppointmentConflictException ex,
+            WebRequest request) {
+
+        ApiResponse<Void> response = ApiResponse.error(
+            HttpStatus.CONFLICT.value(),
+            ex.getMessage()
+        );
+
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
     /**
      * Maneja excepciones de acceso denegado
      */
