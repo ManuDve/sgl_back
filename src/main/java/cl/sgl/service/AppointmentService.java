@@ -332,8 +332,9 @@ public class AppointmentService {
         log.info("Agendamiento creado: {} | {} {} | {}", saved.getIdExterno(),
             saved.getFecha(), saved.getHora(), saved.getNombreCliente());
 
-        // Email de confirmación se envía solo cuando el pago es aprobado,
-        // no al crear el agendamiento (que queda en estado PENDING).
+        // Email de confirmación al cliente se envía solo cuando el pago es aprobado.
+        // Notificación al admin se envía inmediatamente para que pueda esperar la transferencia.
+        emailService.sendAdminNewAppointmentEmail(saved); // SGL-036
 
         return mapToDetail(saved);
     }

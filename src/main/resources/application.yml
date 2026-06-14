@@ -41,6 +41,9 @@ app:
     # Origen permitido. En producción, sobreescribir con variable de entorno ALLOWED_ORIGIN.
     allowed-origin: ${ALLOWED_ORIGIN:http://localhost:4321}
 
+admin:
+  email: ${ADMIN_EMAIL:}
+
 mailtrap:
   api:
     token: ${MAILTRAP_API_TOKEN:}
