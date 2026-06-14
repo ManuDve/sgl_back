@@ -285,7 +285,7 @@
       "name": "Agendamientos - Admin",
       "item": [
         {
-          "name": "GET Listar agendamientos pendientes",
+          "name": "GET Listar agendamientos pendientes (legacy status)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -298,6 +298,28 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "admin", "appointments"],
               "query": [{ "key": "status", "value": "pending" }]
+            }
+          }
+        },
+        {
+          "name": "GET Filtrar agendamientos (search + estado + rango fechas)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments?search=juan&estado=PENDING&desde=2026-06-01&hasta=2026-06-30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments"],
+              "query": [
+                { "key": "search", "value": "juan",       "description": "Busca en nombre, email e idExterno (case-insensitive)" },
+                { "key": "estado", "value": "PENDING",    "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED (inglés o español)" },
+                { "key": "desde",  "value": "2026-06-01", "description": "Fecha mínima inclusiva YYYY-MM-DD" },
+                { "key": "hasta",  "value": "2026-06-30", "description": "Fecha máxima inclusiva YYYY-MM-DD" }
+              ]
             }
           }
         },

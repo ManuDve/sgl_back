@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -98,16 +100,26 @@ public class AppointmentController {
     }
 
     /**
-     * Lista agendamientos, con filtro opcional por estado.
-     * Requiere JWT de administrador.
+     * Lista agendamientos con filtros opcionales combinables.
+     * Todos los parámetros son opcionales; omitirlos equivale a "sin filtro".
+     * El parámetro legacy `status` se mantiene por compatibilidad; `estado` tiene precedencia.
      *
-     * @param status filtro de estado: PENDING | CONFIRMED | CANCELLED | RESCHEDULED (opcional)
-     * @return lista de agendamientos ordenada por fecha y hora ascendente
+     * @param search texto libre buscado en nombre, email e idExterno
+     * @param estado filtro de estado (PENDING / CONFIRMED / CANCELLED / RESCHEDULED, inglés o español)
+     * @param status alias legacy de `estado` (para compatibilidad con clientes anteriores)
+     * @param desde  fecha mínima inclusiva en formato YYYY-MM-DD
+     * @param hasta  fecha máxima inclusiva en formato YYYY-MM-DD
      */
     @GetMapping
     @Operation(
-        summary = "Listar agendamientos",
-        description = "Retorna agendamientos filtrados por estado. Si no se proporciona `status`, devuelve todos. Requiere autenticación de administrador."
+        summary = "Listar agendamientos con filtros",
+        description = "Retorna agendamientos aplicando filtros opcionales combinables. " +
+            "`search` busca en nombre, email e idExterno (case-insensitive). " +
+            "`estado` filtra por estado (acepta inglés o español). " +
+            "`desde` / `hasta` acotan el rango de fechas (YYYY-MM-DD). " +
+            "Sin parámetros devuelve todos los agendamientos. " +
+            "El parámetro legacy `status` se mantiene por compatibilidad. " +
+            "Requiere autenticación de administrador."
     )
     @ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -117,7 +129,7 @@ public class AppointmentController {
         ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "400",
-            description = "Estado inválido"
+            description = "Estado inválido o formato de fecha incorrecto"
         ),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(
             responseCode = "401",
@@ -125,18 +137,31 @@ public class AppointmentController {
         )
     })
     public ResponseEntity<ApiResponse<List<AppointmentSummaryDTO>>> listAppointments(
-        @Parameter(description = "Filtro por estado: PENDING, CONFIRMED, CANCELLED, RESCHEDULED")
-        @RequestParam(required = false) String status) {
+        @Parameter(description = "Texto libre: busca en nombre, email e idExterno")
+        @RequestParam(required = false) String search,
+        @Parameter(description = "Filtro por estado: PENDING, CONFIRMED, CANCELLED, RESCHEDULED (inglés o español)")
+        @RequestParam(required = false) String estado,
+        @Parameter(description = "Alias legacy de estado (para compatibilidad con versiones anteriores)")
+        @RequestParam(required = false) String status,
+        @Parameter(description = "Fecha mínima inclusiva (YYYY-MM-DD)")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+        @Parameter(description = "Fecha máxima inclusiva (YYYY-MM-DD)")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
 
-        log.info("GET /api/admin/appointments - status={}", status);
+        // estado tiene precedencia sobre el alias legacy status
+        String statusFilter = (estado != null) ? estado : status;
 
-        List<AppointmentSummaryDTO> appointments = appointmentService.listByStatus(status);
-        ApiResponse<List<AppointmentSummaryDTO>> response = new ApiResponse<>(
+        log.info("GET /api/admin/appointments - search={}, estado={}, desde={}, hasta={}",
+            search, statusFilter, desde, hasta);
+
+        List<AppointmentSummaryDTO> appointments =
+            appointmentService.search(search, statusFilter, desde, hasta);
+
+        return ResponseEntity.ok(new ApiResponse<>(
             HttpStatus.OK.value(),
             "Agendamientos obtenidos exitosamente",
             appointments
-        );
-        return ResponseEntity.ok(response);
+        ));
     }
 
     /**

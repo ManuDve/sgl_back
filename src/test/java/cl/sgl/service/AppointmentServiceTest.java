@@ -20,6 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -890,5 +892,107 @@ class AppointmentServiceTest {
         AppointmentDetailDTO dto = appointmentService.getById(1L);
 
         assertEquals("Descripción detallada del servicio", dto.getDescripcionServicio());
+    }
+
+    // ── SGL-050 ADM-FILTER ────────────────────────────────────────
+
+    @Test
+    @DisplayName("search sin filtros retorna todos los agendamientos")
+    void testSearch_SinFiltros_RetornaTodos() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(pendingAppointment, confirmedAppointment));
+
+        List<AppointmentSummaryDTO> result = appointmentService.search(null, null, null, null);
+
+        assertEquals(2, result.size());
+        verify(appointmentRepository).findAll(any(Specification.class), any(Sort.class));
+    }
+
+    @Test
+    @DisplayName("search con estado filtra correctamente")
+    void testSearch_ConEstado_FiltradoPorEstado() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(pendingAppointment));
+
+        List<AppointmentSummaryDTO> result = appointmentService.search(null, "PENDING", null, null);
+
+        assertEquals(1, result.size());
+        assertEquals("PENDING", result.get(0).getEstado());
+    }
+
+    @Test
+    @DisplayName("search con estado en español es aceptado")
+    void testSearch_ConEstadoEspanol_Aceptado() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(confirmedAppointment));
+
+        List<AppointmentSummaryDTO> result = appointmentService.search(null, "CONFIRMADO", null, null);
+
+        assertEquals(1, result.size());
+        assertEquals("CONFIRMED", result.get(0).getEstado());
+    }
+
+    @Test
+    @DisplayName("search con texto busca en nombre, email e idExterno")
+    void testSearch_ConTexto_InvocaRepositorio() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(pendingAppointment));
+
+        List<AppointmentSummaryDTO> result = appointmentService.search("juan", null, null, null);
+
+        assertEquals(1, result.size());
+        verify(appointmentRepository).findAll(any(Specification.class), any(Sort.class));
+    }
+
+    @Test
+    @DisplayName("search con rango de fechas aplica ambos predicados")
+    void testSearch_ConRangoFechas_AplicaPredicados() {
+        LocalDate desde = LocalDate.of(2026, 6, 1);
+        LocalDate hasta = LocalDate.of(2026, 6, 30);
+
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(pendingAppointment));
+
+        List<AppointmentSummaryDTO> result = appointmentService.search(null, null, desde, hasta);
+
+        assertEquals(1, result.size());
+        verify(appointmentRepository).findAll(any(Specification.class), any(Sort.class));
+    }
+
+    @Test
+    @DisplayName("search combinando todos los filtros invoca repositorio una sola vez")
+    void testSearch_TodosFiltrosCombinados_InvocaUnaVez() {
+        LocalDate desde = LocalDate.of(2026, 6, 1);
+        LocalDate hasta = LocalDate.of(2026, 6, 30);
+
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(pendingAppointment));
+
+        List<AppointmentSummaryDTO> result =
+            appointmentService.search("juan", "PENDING", desde, hasta);
+
+        assertEquals(1, result.size());
+        verify(appointmentRepository, times(1)).findAll(any(Specification.class), any(Sort.class));
+    }
+
+    @Test
+    @DisplayName("search con estado inválido lanza IllegalArgumentException")
+    void testSearch_EstadoInvalido_LanzaExcepcion() {
+        assertThrows(IllegalArgumentException.class, () ->
+            appointmentService.search(null, "INVALIDO", null, null));
+
+        verify(appointmentRepository, never()).findAll(any(Specification.class), any(Sort.class));
+    }
+
+    @Test
+    @DisplayName("search sin resultados retorna lista vacía")
+    void testSearch_SinResultados_RetornaListaVacia() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(Collections.emptyList());
+
+        List<AppointmentSummaryDTO> result = appointmentService.search("inexistente", null, null, null);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 }

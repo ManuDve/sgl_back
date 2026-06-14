@@ -13,9 +13,12 @@ import cl.sgl.entity.LegalService;
 import cl.sgl.exception.AppointmentConflictException;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
+import cl.sgl.repository.AppointmentSpecification;
 import cl.sgl.repository.LegalServiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +52,53 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final LegalServiceRepository legalServiceRepository;
     private final EmailService emailService;
+
+    /**
+     * Busca agendamientos combinando filtros opcionales: texto libre, estado, rango de fechas.
+     * Cualquier parámetro puede ser null → se omite ese predicado.
+     * Mantiene compatibilidad con el endpoint existente (todos los params null = devuelve todo).
+     *
+     * @param searchText texto a buscar en nombreCliente, email e idExterno (case-insensitive)
+     * @param status     nombre de estado (inglés o español); null = sin filtro de estado
+     * @param desde      fecha mínima inclusiva; null = sin límite inferior
+     * @param hasta      fecha máxima inclusiva; null = sin límite superior
+     * @return lista ordenada por fecha y hora ascendente
+     * @throws IllegalArgumentException si el valor de status no es un estado válido
+     *
+     * Historia: SGL-050 ADM-FILTER
+     */
+    @Transactional(readOnly = true)
+    public List<AppointmentSummaryDTO> search(String searchText, String status,
+                                              LocalDate desde, LocalDate hasta) {
+        Specification<Appointment> spec = Specification.where(null);
+
+        if (status != null && !status.isBlank()) {
+            AppointmentStatus estado = AppointmentStatus.fromString(status);
+            spec = spec.and(AppointmentSpecification.hasEstado(estado));
+        }
+
+        if (searchText != null && !searchText.isBlank()) {
+            spec = spec.and(AppointmentSpecification.searchText(searchText.trim()));
+        }
+
+        if (desde != null) {
+            spec = spec.and(AppointmentSpecification.fechaDesde(desde));
+        }
+
+        if (hasta != null) {
+            spec = spec.and(AppointmentSpecification.fechaHasta(hasta));
+        }
+
+        Sort sort = Sort.by(Sort.Direction.ASC, "fecha", "hora");
+        List<Appointment> results = appointmentRepository.findAll(spec, sort);
+
+        log.debug("search(text={}, status={}, desde={}, hasta={}) → {} resultados",
+            searchText, status, desde, hasta, results.size());
+
+        return results.stream()
+            .map(this::mapToSummary)
+            .collect(Collectors.toList());
+    }
 
     /**
      * Lista agendamientos filtrados por estado.

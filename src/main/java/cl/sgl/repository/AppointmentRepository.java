@@ -3,6 +3,7 @@ package cl.sgl.repository;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,10 +16,10 @@ import java.util.List;
 /**
  * Repositorio JPA para agendamientos.
  *
- * Historias: SGL-045 ADM-LIST-PEND, SGL-021 AG-HORAS
+ * Historias: SGL-045 ADM-LIST-PEND, SGL-021 AG-HORAS, SGL-050 ADM-FILTER
  */
 @Repository
-public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
+public interface AppointmentRepository extends JpaRepository<Appointment, Long>, JpaSpecificationExecutor<Appointment> {
 
     List<Appointment> findByEstadoOrderByFechaAscHoraAsc(AppointmentStatus estado);
 
