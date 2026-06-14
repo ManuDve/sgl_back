@@ -17,7 +17,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -162,6 +165,61 @@ public class AppointmentController {
             "Agendamientos obtenidos exitosamente",
             appointments
         ));
+    }
+
+    /**
+     * Exporta agendamientos en formato CSV con los mismos filtros que el endpoint de listado.
+     * Spring MVC resuelve /export antes que /{id} porque los paths literales tienen mayor precedencia.
+     * Requiere JWT de administrador.
+     *
+     * Historia: SGL-051 ADM-EXPORT
+     */
+    @GetMapping("/export")
+    @Operation(
+        summary = "Exportar agendamientos a CSV",
+        description = "Genera y descarga un archivo CSV con los agendamientos que cumplan los filtros. " +
+            "Acepta los mismos parámetros que el endpoint de listado. " +
+            "Sin parámetros exporta todos los agendamientos. " +
+            "Requiere autenticación de administrador."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Archivo CSV generado exitosamente"
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Estado inválido o formato de fecha incorrecto"
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "No autenticado"
+        )
+    })
+    public ResponseEntity<byte[]> exportCsv(
+        @Parameter(description = "Texto libre: busca en nombre, email e idExterno")
+        @RequestParam(required = false) String search,
+        @Parameter(description = "Filtro por estado (inglés o español)")
+        @RequestParam(required = false) String estado,
+        @Parameter(description = "Alias legacy de estado")
+        @RequestParam(required = false) String status,
+        @Parameter(description = "Fecha mínima inclusiva (YYYY-MM-DD)")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+        @Parameter(description = "Fecha máxima inclusiva (YYYY-MM-DD)")
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+
+        String statusFilter = (estado != null) ? estado : status;
+
+        log.info("GET /api/admin/appointments/export - search={}, estado={}, desde={}, hasta={}",
+            search, statusFilter, desde, hasta);
+
+        String csv = appointmentService.exportCsv(search, statusFilter, desde, hasta);
+        String filename = "agendamientos_" + LocalDate.now() + ".csv";
+
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+            .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

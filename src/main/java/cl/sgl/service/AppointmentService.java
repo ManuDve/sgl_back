@@ -39,6 +39,8 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+
 /**
  * Servicio de lógica de negocio para agendamientos.
  *
@@ -52,6 +54,44 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final LegalServiceRepository legalServiceRepository;
     private final EmailService emailService;
+
+    // ── CSV helpers (SGL-051) ─────────────────────────────────────────────
+
+    private static final String CSV_HEADER =
+        "ID,ID Externo,Cliente,Email,Teléfono,Servicio,Fecha,Hora,Monto,Estado,Código Transacción,Descripción,Fecha Creación";
+    private static final DateTimeFormatter HORA_FMT     = DateTimeFormatter.ofPattern("HH:mm");
+    private static final DateTimeFormatter DATETIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+    /** Escapa un campo CSV: entre comillas dobles si contiene coma, comilla o salto de línea. */
+    static String escapeCsv(String value) {
+        if (value == null || value.isEmpty()) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
+    // ── Specification compartida por search y exportCsv ───────────────────
+
+    private Specification<Appointment> buildSpec(String searchText, String status,
+                                                  LocalDate desde, LocalDate hasta) {
+        Specification<Appointment> spec = Specification.where(null);
+
+        if (status != null && !status.isBlank()) {
+            AppointmentStatus estado = AppointmentStatus.fromString(status);
+            spec = spec.and(AppointmentSpecification.hasEstado(estado));
+        }
+        if (searchText != null && !searchText.isBlank()) {
+            spec = spec.and(AppointmentSpecification.searchText(searchText.trim()));
+        }
+        if (desde != null) {
+            spec = spec.and(AppointmentSpecification.fechaDesde(desde));
+        }
+        if (hasta != null) {
+            spec = spec.and(AppointmentSpecification.fechaHasta(hasta));
+        }
+        return spec;
+    }
 
     /**
      * Busca agendamientos combinando filtros opcionales: texto libre, estado, rango de fechas.
@@ -70,27 +110,8 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentSummaryDTO> search(String searchText, String status,
                                               LocalDate desde, LocalDate hasta) {
-        Specification<Appointment> spec = Specification.where(null);
-
-        if (status != null && !status.isBlank()) {
-            AppointmentStatus estado = AppointmentStatus.fromString(status);
-            spec = spec.and(AppointmentSpecification.hasEstado(estado));
-        }
-
-        if (searchText != null && !searchText.isBlank()) {
-            spec = spec.and(AppointmentSpecification.searchText(searchText.trim()));
-        }
-
-        if (desde != null) {
-            spec = spec.and(AppointmentSpecification.fechaDesde(desde));
-        }
-
-        if (hasta != null) {
-            spec = spec.and(AppointmentSpecification.fechaHasta(hasta));
-        }
-
         Sort sort = Sort.by(Sort.Direction.ASC, "fecha", "hora");
-        List<Appointment> results = appointmentRepository.findAll(spec, sort);
+        List<Appointment> results = appointmentRepository.findAll(buildSpec(searchText, status, desde, hasta), sort);
 
         log.debug("search(text={}, status={}, desde={}, hasta={}) → {} resultados",
             searchText, status, desde, hasta, results.size());
@@ -98,6 +119,48 @@ public class AppointmentService {
         return results.stream()
             .map(this::mapToSummary)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Exporta agendamientos con los mismos filtros que {@link #search} en formato CSV.
+     * Columnas: ID, idExterno, cliente, email, teléfono, servicio, fecha, hora,
+     * monto, estado, codigoTransaccion, fechaCreacion.
+     *
+     * @return contenido CSV como String (UTF-8, separador CRLF, campos con coma escapados)
+     * @throws IllegalArgumentException si el valor de status no es un estado válido
+     *
+     * Historia: SGL-051 ADM-EXPORT
+     */
+    @Transactional(readOnly = true)
+    public String exportCsv(String searchText, String status, LocalDate desde, LocalDate hasta) {
+        Sort sort = Sort.by(Sort.Direction.ASC, "fecha", "hora");
+        List<Appointment> results = appointmentRepository.findAll(buildSpec(searchText, status, desde, hasta), sort);
+
+        log.info("exportCsv(text={}, status={}, desde={}, hasta={}) → {} filas",
+            searchText, status, desde, hasta, results.size());
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(CSV_HEADER).append("\r\n");
+
+        for (Appointment a : results) {
+            sb.append(a.getId()).append(",");
+            sb.append(escapeCsv(a.getIdExterno())).append(",");
+            sb.append(escapeCsv(a.getNombreCliente())).append(",");
+            sb.append(escapeCsv(a.getEmail())).append(",");
+            sb.append(escapeCsv(a.getTelefono())).append(",");
+            sb.append(escapeCsv(a.getService().getName())).append(",");
+            sb.append(a.getFecha().format(ISO_LOCAL_DATE)).append(",");
+            sb.append(a.getHora().format(HORA_FMT)).append(",");
+            sb.append(a.getMonto().toPlainString()).append(",");
+            sb.append(escapeCsv(a.getEstado().name())).append(",");
+            sb.append(escapeCsv(a.getCodigoTransaccion())).append(",");
+            sb.append(escapeCsv(a.getDescripcion())).append(",");
+            sb.append(escapeCsv(a.getCreatedAt() != null
+                ? a.getCreatedAt().format(DATETIME_FMT) : ""));
+            sb.append("\r\n");
+        }
+
+        return sb.toString();
     }
 
     /**

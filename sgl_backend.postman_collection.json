@@ -352,6 +352,28 @@
           }
         },
         {
+          "name": "GET Exportar agendamientos CSV",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/export?desde=2026-01-01&hasta=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "appointments", "export"],
+              "query": [
+                { "key": "search", "value": "",            "disabled": true, "description": "Busca en nombre, email e idExterno" },
+                { "key": "estado", "value": "",            "disabled": true, "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED" },
+                { "key": "desde",  "value": "2026-01-01", "description": "Fecha mínima inclusiva YYYY-MM-DD" },
+                { "key": "hasta",  "value": "2026-12-31", "description": "Fecha máxima inclusiva YYYY-MM-DD" }
+              ]
+            }
+          }
+        },
+        {
           "name": "GET Detalle de agendamiento",
           "request": {
             "auth": {

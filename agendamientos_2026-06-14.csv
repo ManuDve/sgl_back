@@ -1,0 +1,5 @@
+ID,ID Externo,Cliente,Email,Teléfono,Servicio,Fecha,Hora,Monto,Estado,Código Transacción,Descripción,Fecha Creación
+11,AG-AKHI-0011,Juan Pérez González,juan.perez@gmail.com,+56912345678,Divorcio Contencioso,2026-06-10,10:00,500000.00,CONFIRMED,ejemplo,,2026-05-08 23:22
+50,AG-ORFK-0050,Juan Pérez González,juan.perez@gmail.com,+56912345678,Divorcio Contencioso,2026-06-11,10:00,25000.00,PENDING,,Necesito orientación sobre un proceso de divorcio de mutuo acuerdo.,2026-06-05 23:13
+51,AG-ITDD-0051,Juan Pérez González,juan.perez@gmail.com,+56912345678,Divorcio Contencioso,2026-06-12,10:00,25000.00,PENDING,,,2026-06-05 23:14
+53,AG-MTLP-0053,Manuel Alfaro,m.alfaro@live.cl,+56988273166,Servicio de Prueba,2026-08-03,09:00,500000.00,PENDING,,Prueba de pendiente,2026-06-13 23:07

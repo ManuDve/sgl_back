@@ -995,4 +995,106 @@ class AppointmentServiceTest {
         assertNotNull(result);
         assertTrue(result.isEmpty());
     }
+
+    // ── SGL-051 ADM-EXPORT ────────────────────────────────────────
+
+    @Test
+    @DisplayName("exportCsv incluye header como primera línea")
+    void testExportCsv_IncluyeHeader() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(Collections.emptyList());
+
+        String csv = appointmentService.exportCsv(null, null, null, null);
+
+        String[] lines = csv.split("\r\n");
+        assertEquals("ID,ID Externo,Cliente,Email,Teléfono,Servicio,Fecha,Hora,Monto,Estado,Código Transacción,Descripción,Fecha Creación",
+            lines[0]);
+    }
+
+    @Test
+    @DisplayName("exportCsv sin resultados retorna solo el header")
+    void testExportCsv_SinResultados_SoloHeader() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(Collections.emptyList());
+
+        String csv = appointmentService.exportCsv(null, null, null, null);
+
+        String[] lines = csv.split("\r\n");
+        assertEquals(1, lines.length);
+    }
+
+    @Test
+    @DisplayName("exportCsv genera una fila por agendamiento con los campos correctos")
+    void testExportCsv_FilaContenidoCorrecto() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(pendingAppointment));
+
+        String csv = appointmentService.exportCsv(null, null, null, null);
+
+        String[] lines = csv.split("\r\n");
+        assertEquals(2, lines.length); // header + 1 fila
+        String row = lines[1];
+        assertTrue(row.contains("AG-2026-0001"), "debe incluir idExterno");
+        assertTrue(row.contains("Juan Pérez"),   "debe incluir nombreCliente");
+        assertTrue(row.contains("juan@example.com"), "debe incluir email");
+        assertTrue(row.contains("PENDING"),      "debe incluir estado");
+        assertTrue(row.contains("500000"),       "debe incluir monto");
+        assertTrue(row.contains("10:00"),        "debe incluir hora formateada");
+        assertTrue(row.contains("2026-05-15"),   "debe incluir fecha ISO");
+    }
+
+    @Test
+    @DisplayName("exportCsv escapa campos que contienen comas")
+    void testExportCsv_EscapaCamposConComa() {
+        String nombreConComa = "Pérez, Juan Carlos";
+        Appointment aptConComa = Appointment.builder()
+            .id(5L).idExterno("AG-ZZZZ-0005")
+            .nombreCliente(nombreConComa).email("jc@example.cl").telefono("+56911111111")
+            .service(servicio)
+            .fecha(LocalDate.of(2026, 6, 20)).hora(LocalTime.of(9, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
+            .build();
+
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(aptConComa));
+
+        String csv = appointmentService.exportCsv(null, null, null, null);
+
+        assertTrue(csv.contains("\"Pérez, Juan Carlos\""),
+            "nombre con coma debe estar entre comillas dobles");
+    }
+
+    @Test
+    @DisplayName("escapeCsv devuelve string vacío para null")
+    void testEscapeCsv_Null() {
+        assertEquals("", AppointmentService.escapeCsv(null));
+    }
+
+    @Test
+    @DisplayName("escapeCsv no altera valores sin caracteres especiales")
+    void testEscapeCsv_SinEspeciales() {
+        assertEquals("PENDING", AppointmentService.escapeCsv("PENDING"));
+    }
+
+    @Test
+    @DisplayName("escapeCsv envuelve en comillas y escapa comillas internas")
+    void testEscapeCsv_ConComillasInternas() {
+        assertEquals("\"dijo \"\"hola\"\"\"", AppointmentService.escapeCsv("dijo \"hola\""));
+    }
+
+    @Test
+    @DisplayName("exportCsv aplica filtros correctamente (delega a buildSpec)")
+    void testExportCsv_AplicaFiltros() {
+        when(appointmentRepository.findAll(any(Specification.class), any(Sort.class)))
+            .thenReturn(List.of(confirmedAppointment));
+
+        String csv = appointmentService.exportCsv("maria", "CONFIRMED", null, null);
+
+        String[] lines = csv.split("\r\n");
+        assertEquals(2, lines.length);
+        verify(appointmentRepository, times(1))
+            .findAll(any(Specification.class), any(Sort.class));
+    }
 }
