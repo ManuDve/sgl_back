@@ -34,7 +34,7 @@ class EmailServiceTest {
     @BeforeEach
     void setUp() {
         mockClient   = mock(MailtrapClient.class);
-        emailService = new EmailService(mockClient, "no-reply@sgl.cl", "admin@test.cl");
+        emailService = new EmailService(mockClient, "no-reply@sgl.cl", "admin@test.cl", new EmailTemplateBuilder());
 
         LegalService servicio = LegalService.builder()
             .id(1L).name("Divorcio Contencioso")
@@ -119,7 +119,7 @@ class EmailServiceTest {
     @Test
     @DisplayName("sendAdminNewAppointmentEmail omite el envío si adminEmail está vacío")
     void testSendAdminNewAppointmentEmail_SkipSiAdminEmailVacio() throws Exception {
-        EmailService serviceConEmailVacio = new EmailService(mockClient, "no-reply@sgl.cl", "");
+        EmailService serviceConEmailVacio = new EmailService(mockClient, "no-reply@sgl.cl", "", new EmailTemplateBuilder());
 
         serviceConEmailVacio.sendAdminNewAppointmentEmail(appointment);
 
