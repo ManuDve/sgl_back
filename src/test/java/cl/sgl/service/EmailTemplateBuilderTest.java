@@ -157,4 +157,20 @@ class EmailTemplateBuilderTest {
         assertTrue(html.contains("10 de julio de 2026"), "debe incluir la fecha formateada");
         assertTrue(html.contains("programada para mañana"), "debe incluir el mensaje de recordatorio");
     }
+
+    // ── buildReminder2hEmail ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("buildReminder2hEmail incluye nombre, idExterno, servicio, fecha y mensaje 2h")
+    void testBuildReminder2hEmail_ContenidoCompleto() {
+        String html = builder.buildReminder2hEmail(appointment);
+
+        assertTrue(html.contains("Juan Pérez"),                      "debe incluir el nombre del cliente");
+        assertTrue(html.contains("AG-ABCD-0001"),                    "debe incluir el idExterno");
+        assertTrue(html.contains("Divorcio Contencioso"),            "debe incluir el servicio");
+        assertTrue(html.contains("10 de julio de 2026"),            "debe incluir la fecha formateada");
+        assertTrue(html.contains("próximas 2 horas"),               "debe incluir el mensaje de 2 horas");
+        assertTrue(html.contains("class=\"logo\">SGL"),             "debe incluir el header SGL");
+        assertTrue(html.contains("class=\"ftr\""),                  "debe incluir el footer");
+    }
 }

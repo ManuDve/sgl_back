@@ -44,6 +44,11 @@ app:
 admin:
   email: ${ADMIN_EMAIL:}
 
+reminder:
+  first-lead-minutes:  ${REMINDER_FIRST_LEAD_MINUTES:1440}   # minutos antes del primer recordatorio (default: 24h exactas)
+  second-lead-minutes: ${REMINDER_SECOND_LEAD_MINUTES:120}   # minutos antes del segundo recordatorio (default: 2h exactas)
+  cron:                ${REMINDER_CRON:0 0 * * * *}           # cuándo ejecutar — default: inicio de cada hora en punto
+
 mailtrap:
   api:
     token: ${MAILTRAP_API_TOKEN:}

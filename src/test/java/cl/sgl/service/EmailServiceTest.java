@@ -3,6 +3,7 @@ package cl.sgl.service;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
+import cl.sgl.entity.ReminderTipo;
 import io.mailtrap.client.MailtrapClient;
 import io.mailtrap.model.request.emails.MailtrapMail;
 import io.mailtrap.model.response.emails.SendResponse;
@@ -153,6 +154,51 @@ class EmailServiceTest {
         verify(mockClient).send(captor.capture());
         assertTrue(captor.getValue().getHtml().contains("Necesito asesoría sobre divorcio"),
             "El HTML debe incluir la descripción del caso");
+    }
+
+    // ── SGL-035 NOTIF-REMIND ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("sendReminderEmail REMIND_24H envía con asunto 'mañana' al email del cliente")
+    void testSendReminderEmail_24h_DatosCorrectos() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendReminderEmail(appointment, ReminderTipo.REMIND_24H);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        MailtrapMail mail = captor.getValue();
+        assertEquals("juan.perez@example.cl", mail.getTo().get(0).getEmail());
+        assertTrue(mail.getSubject().contains("mañana"),       "asunto 24h debe mencionar 'mañana'");
+        assertTrue(mail.getSubject().contains("AG-ABCD-0001"), "asunto debe incluir el idExterno");
+        assertTrue(mail.getHtml().contains("programada para mañana"), "html 24h debe decir 'mañana'");
+    }
+
+    @Test
+    @DisplayName("sendReminderEmail REMIND_2H envía con asunto '2 horas' al email del cliente")
+    void testSendReminderEmail_2h_DatosCorrectos() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendReminderEmail(appointment, ReminderTipo.REMIND_2H);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        MailtrapMail mail = captor.getValue();
+        assertEquals("juan.perez@example.cl", mail.getTo().get(0).getEmail());
+        assertTrue(mail.getSubject().contains("2 horas"),      "asunto 2h debe mencionar '2 horas'");
+        assertTrue(mail.getSubject().contains("AG-ABCD-0001"), "asunto debe incluir el idExterno");
+        assertTrue(mail.getHtml().contains("próximas 2 horas"), "html 2h debe decir '2 horas'");
+    }
+
+    @Test
+    @DisplayName("sendReminderEmail retorna false y no lanza excepción si el cliente de correo falla")
+    void testSendReminderEmail_ErrorRetornaFalse() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("Mailtrap no disponible"));
+
+        boolean resultado = emailService.sendReminderEmail(appointment, ReminderTipo.REMIND_24H);
+
+        assertFalse(resultado, "debe retornar false cuando el envío falla");
+        verify(mockClient).send(any(MailtrapMail.class));
     }
 
     @Test

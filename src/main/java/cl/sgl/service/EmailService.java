@@ -1,6 +1,7 @@
 package cl.sgl.service;
 
 import cl.sgl.entity.Appointment;
+import cl.sgl.entity.ReminderTipo;
 import io.mailtrap.client.MailtrapClient;
 import io.mailtrap.config.MailtrapConfig;
 import io.mailtrap.factory.MailtrapClientFactory;
@@ -107,6 +108,41 @@ public class EmailService {
         } catch (Exception e) {
             log.error("No se pudo enviar notificación admin para {} — {}",
                 appointment.getIdExterno(), e.getMessage());
+        }
+    }
+
+    /**
+     * Envía recordatorio de cita al cliente: 24h o 2h antes según el tipo.
+     * No lanza excepciones: si falla, registra el error y continúa.
+     *
+     * Historia: SGL-035 NOTIF-REMIND
+     */
+    public boolean sendReminderEmail(Appointment appointment, ReminderTipo tipo) {
+        try {
+            String subject = tipo == ReminderTipo.REMIND_24H
+                ? "Recordatorio: tu consulta es mañana — " + appointment.getIdExterno()
+                : "Recordatorio: tu consulta es en 2 horas — " + appointment.getIdExterno();
+
+            String html = tipo == ReminderTipo.REMIND_24H
+                ? templateBuilder.buildReminderEmail(appointment)
+                : templateBuilder.buildReminder2hEmail(appointment);
+
+            MailtrapMail mail = MailtrapMail.builder()
+                .from(new Address(fromEmail, FROM_NAME))
+                .to(List.of(new Address(appointment.getEmail())))
+                .subject(subject)
+                .html(html)
+                .build();
+
+            mailtrapClient.send(mail);
+            log.info("Recordatorio {} enviado → {} [{}]",
+                tipo, appointment.getEmail(), appointment.getIdExterno());
+            return true;
+
+        } catch (Exception e) {
+            log.error("No se pudo enviar recordatorio {} para {} — {}",
+                tipo, appointment.getIdExterno(), e.getMessage());
+            return false;
         }
     }
 }

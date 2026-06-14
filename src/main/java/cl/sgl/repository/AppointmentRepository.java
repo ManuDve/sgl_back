@@ -47,4 +47,20 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
      * Usado por el calendario semanal del panel admin (SGL-049 ADM-CAL).
      */
     List<Appointment> findByFechaBetweenOrderByFechaAscHoraAsc(LocalDate desde, LocalDate hasta);
+
+    /**
+     * Retorna agendamientos confirmados para una fecha específica.
+     * Usado por el scheduler de recordatorios 24h (SGL-035 NOTIF-REMIND).
+     */
+    List<Appointment> findByEstadoAndFecha(AppointmentStatus estado, LocalDate fecha);
+
+    /**
+     * Retorna agendamientos confirmados para una fecha y hora exacta, con el servicio cargado en la misma consulta.
+     * JOIN FETCH evita LazyInitializationException al acceder a service.name fuera de sesión Hibernate.
+     * Usado por el scheduler de recordatorios (SGL-035 NOTIF-REMIND).
+     */
+    @Query("SELECT a FROM Appointment a JOIN FETCH a.service WHERE a.estado = :estado AND a.fecha = :fecha AND a.hora = :hora")
+    List<Appointment> findByEstadoAndFechaAndHora(@Param("estado") AppointmentStatus estado,
+                                                   @Param("fecha") LocalDate fecha,
+                                                   @Param("hora") LocalTime hora);
 }
