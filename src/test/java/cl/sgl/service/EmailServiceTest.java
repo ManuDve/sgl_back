@@ -2,8 +2,12 @@ package cl.sgl.service;
 
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
+import cl.sgl.entity.EmailRetryQueue;
+import cl.sgl.entity.EstadoRetry;
 import cl.sgl.entity.LegalService;
 import cl.sgl.entity.ReminderTipo;
+import cl.sgl.entity.TipoEmail;
+import cl.sgl.repository.EmailRetryQueueRepository;
 import io.mailtrap.client.MailtrapClient;
 import io.mailtrap.model.request.emails.MailtrapMail;
 import io.mailtrap.model.response.emails.SendResponse;
@@ -23,19 +27,22 @@ import static org.mockito.Mockito.*;
 
 /**
  * Tests unitarios para EmailService.
- * Historia: SGL-033 NOTIF-EMAIL-01
+ * Historias: SGL-033 NOTIF-EMAIL-01, SGL-038 NOTIF-RETRY
  */
 @DisplayName("EmailService Tests")
 class EmailServiceTest {
 
-    private MailtrapClient mockClient;
-    private EmailService   emailService;
-    private Appointment    appointment;
+    private MailtrapClient            mockClient;
+    private EmailRetryQueueRepository mockRetryQueue;
+    private EmailService              emailService;
+    private Appointment               appointment;
 
     @BeforeEach
     void setUp() {
-        mockClient   = mock(MailtrapClient.class);
-        emailService = new EmailService(mockClient, "no-reply@sgl.cl", "admin@test.cl", new EmailTemplateBuilder());
+        mockClient    = mock(MailtrapClient.class);
+        mockRetryQueue = mock(EmailRetryQueueRepository.class);
+        emailService  = new EmailService(mockClient, "no-reply@sgl.cl", "admin@test.cl",
+                new EmailTemplateBuilder(), mockRetryQueue);
 
         LegalService servicio = LegalService.builder()
             .id(1L).name("Divorcio Contencioso")
@@ -120,7 +127,8 @@ class EmailServiceTest {
     @Test
     @DisplayName("sendAdminNewAppointmentEmail omite el envío si adminEmail está vacío")
     void testSendAdminNewAppointmentEmail_SkipSiAdminEmailVacio() throws Exception {
-        EmailService serviceConEmailVacio = new EmailService(mockClient, "no-reply@sgl.cl", "", new EmailTemplateBuilder());
+        EmailService serviceConEmailVacio = new EmailService(
+                mockClient, "no-reply@sgl.cl", "", new EmailTemplateBuilder(), mockRetryQueue);
 
         serviceConEmailVacio.sendAdminNewAppointmentEmail(appointment);
 
@@ -228,5 +236,160 @@ class EmailServiceTest {
         verify(mockClient).send(captor.capture());
         assertTrue(captor.getValue().getHtml().contains("TXN-987654321"),
             "El HTML debe incluir el código de transacción");
+    }
+
+    // ── SGL-038 NOTIF-RETRY — encolar en retry queue al fallar ────────────
+
+    @Test
+    @DisplayName("sendConfirmationEmail encola en retry queue con tipo CONFIRMACION_CLIENTE si Mailtrap falla")
+    void testSendConfirmationEmail_ErrorEncolarEnRetryQueue() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        emailService.sendConfirmationEmail(appointment);
+
+        ArgumentCaptor<EmailRetryQueue> captor = ArgumentCaptor.forClass(EmailRetryQueue.class);
+        verify(mockRetryQueue).save(captor.capture());
+        EmailRetryQueue encolado = captor.getValue();
+        assertEquals(TipoEmail.CONFIRMACION_CLIENTE, encolado.getTipoEmail());
+        assertEquals(1L,                             encolado.getAppointmentId());
+        assertEquals(0,                              encolado.getIntentos());
+        assertEquals(EstadoRetry.PENDIENTE,          encolado.getEstado());
+        assertNotNull(encolado.getProximoIntento());
+    }
+
+    @Test
+    @DisplayName("sendAdminNewAppointmentEmail encola en retry queue con tipo NOTIF_ADMIN si Mailtrap falla")
+    void testSendAdminNewAppointmentEmail_ErrorEncolarEnRetryQueue() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        emailService.sendAdminNewAppointmentEmail(appointment);
+
+        ArgumentCaptor<EmailRetryQueue> captor = ArgumentCaptor.forClass(EmailRetryQueue.class);
+        verify(mockRetryQueue).save(captor.capture());
+        EmailRetryQueue encolado = captor.getValue();
+        assertEquals(TipoEmail.NOTIF_ADMIN, encolado.getTipoEmail());
+        assertEquals(1L,                    encolado.getAppointmentId());
+        assertEquals(EstadoRetry.PENDIENTE, encolado.getEstado());
+    }
+
+    @Test
+    @DisplayName("sendReminderEmail encola en retry queue con tipo REMINDER_24H si Mailtrap falla")
+    void testSendReminderEmail_ErrorEncolarEnRetryQueue() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        emailService.sendReminderEmail(appointment, ReminderTipo.REMIND_24H);
+
+        ArgumentCaptor<EmailRetryQueue> captor = ArgumentCaptor.forClass(EmailRetryQueue.class);
+        verify(mockRetryQueue).save(captor.capture());
+        EmailRetryQueue encolado = captor.getValue();
+        assertEquals(TipoEmail.REMINDER_24H, encolado.getTipoEmail());
+        assertEquals(1L,                     encolado.getAppointmentId());
+        assertEquals(EstadoRetry.PENDIENTE,  encolado.getEstado());
+    }
+
+    @Test
+    @DisplayName("sendReminderEmail encola con tipo REMINDER_2H cuando falla con tipo REMIND_2H")
+    void testSendReminderEmail_Reminder2h_ErrorEncolarConTipoReminder2h() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        emailService.sendReminderEmail(appointment, ReminderTipo.REMIND_2H);
+
+        ArgumentCaptor<EmailRetryQueue> captor = ArgumentCaptor.forClass(EmailRetryQueue.class);
+        verify(mockRetryQueue).save(captor.capture());
+        assertEquals(TipoEmail.REMINDER_2H, captor.getValue().getTipoEmail());
+    }
+
+    @Test
+    @DisplayName("sendConfirmationEmail encola con ultimoError null cuando la excepción no tiene mensaje")
+    void testSendConfirmationEmail_ExcepcionSinMensaje_EncolarConUltimoErrorNulo() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException((String) null));
+
+        emailService.sendConfirmationEmail(appointment);
+
+        ArgumentCaptor<EmailRetryQueue> captor = ArgumentCaptor.forClass(EmailRetryQueue.class);
+        verify(mockRetryQueue).save(captor.capture());
+        assertNull(captor.getValue().getUltimoError());
+    }
+
+    @Test
+    @DisplayName("sendConfirmationEmail no lanza excepción si el encolado en retry queue falla")
+    void testSendConfirmationEmail_ErrorDeEncolado_NoLanzaExcepcion() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+        when(mockRetryQueue.save(any())).thenThrow(new RuntimeException("DB error"));
+
+        assertDoesNotThrow(() -> emailService.sendConfirmationEmail(appointment));
+    }
+
+    // ── SGL-038 NOTIF-RETRY — retryEmail ─────────────────────────────────
+
+    @Test
+    @DisplayName("retryEmail CONFIRMACION_CLIENTE envía email de confirmación al cliente")
+    void testRetryEmail_ConfirmacionCliente_EnviaEmailAlCliente() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.CONFIRMACION_CLIENTE);
+
+        emailService.retryEmail(entry, appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        assertEquals("juan.perez@example.cl", captor.getValue().getTo().get(0).getEmail());
+        assertTrue(captor.getValue().getSubject().contains("Pago confirmado"));
+    }
+
+    @Test
+    @DisplayName("retryEmail NOTIF_ADMIN envía email de notificación al admin")
+    void testRetryEmail_NotifAdmin_EnviaEmailAlAdmin() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.NOTIF_ADMIN);
+
+        emailService.retryEmail(entry, appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        assertEquals("admin@test.cl", captor.getValue().getTo().get(0).getEmail());
+        assertTrue(captor.getValue().getSubject().contains("AG-ABCD-0001"));
+    }
+
+    @Test
+    @DisplayName("retryEmail REMINDER_24H envía recordatorio con asunto 'mañana'")
+    void testRetryEmail_Reminder24h_EnviaEmailConAsuntoManana() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.REMINDER_24H);
+
+        emailService.retryEmail(entry, appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        assertTrue(captor.getValue().getSubject().contains("mañana"));
+    }
+
+    @Test
+    @DisplayName("retryEmail REMINDER_2H envía recordatorio con asunto '2 horas'")
+    void testRetryEmail_Reminder2h_EnviaEmailConAsunto2Horas() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.REMINDER_2H);
+
+        emailService.retryEmail(entry, appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        assertTrue(captor.getValue().getSubject().contains("2 horas"));
+    }
+
+    @Test
+    @DisplayName("retryEmail lanza excepción si Mailtrap falla, sin silenciarla")
+    void testRetryEmail_LanzaExcepcionSiMailtrapFalla() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.CONFIRMACION_CLIENTE);
+
+        assertThrows(Exception.class, () -> emailService.retryEmail(entry, appointment));
+        verify(mockRetryQueue, never()).save(any());
+    }
+
+    private EmailRetryQueue buildRetryEntry(TipoEmail tipo) {
+        return EmailRetryQueue.builder()
+            .id(1L).appointmentId(1L).tipoEmail(tipo).intentos(1)
+            .proximoIntento(LocalDateTime.now()).estado(EstadoRetry.PENDIENTE)
+            .build();
     }
 }
