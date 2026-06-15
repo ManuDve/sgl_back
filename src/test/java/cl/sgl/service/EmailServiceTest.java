@@ -27,13 +27,14 @@ import static org.mockito.Mockito.*;
 
 /**
  * Tests unitarios para EmailService.
- * Historias: SGL-033 NOTIF-EMAIL-01, SGL-038 NOTIF-RETRY
+ * Historias: SGL-033 NOTIF-EMAIL-01, SGL-038 NOTIF-RETRY, SGL-040 NOTIF-AUDIT
  */
 @DisplayName("EmailService Tests")
 class EmailServiceTest {
 
     private MailtrapClient            mockClient;
     private EmailRetryQueueRepository mockRetryQueue;
+    private NotificationLogService    mockNotifLog;
     private EmailService              emailService;
     private Appointment               appointment;
 
@@ -41,8 +42,9 @@ class EmailServiceTest {
     void setUp() {
         mockClient    = mock(MailtrapClient.class);
         mockRetryQueue = mock(EmailRetryQueueRepository.class);
+        mockNotifLog   = mock(NotificationLogService.class);
         emailService  = new EmailService(mockClient, "no-reply@sgl.cl", "admin@test.cl",
-                new EmailTemplateBuilder(), mockRetryQueue);
+                new EmailTemplateBuilder(), mockRetryQueue, mockNotifLog);
 
         LegalService servicio = LegalService.builder()
             .id(1L).name("Divorcio Contencioso")
@@ -128,7 +130,7 @@ class EmailServiceTest {
     @DisplayName("sendAdminNewAppointmentEmail omite el envío si adminEmail está vacío")
     void testSendAdminNewAppointmentEmail_SkipSiAdminEmailVacio() throws Exception {
         EmailService serviceConEmailVacio = new EmailService(
-                mockClient, "no-reply@sgl.cl", "", new EmailTemplateBuilder(), mockRetryQueue);
+                mockClient, "no-reply@sgl.cl", "", new EmailTemplateBuilder(), mockRetryQueue, mockNotifLog);
 
         serviceConEmailVacio.sendAdminNewAppointmentEmail(appointment);
 
@@ -384,6 +386,85 @@ class EmailServiceTest {
 
         assertThrows(Exception.class, () -> emailService.retryEmail(entry, appointment));
         verify(mockRetryQueue, never()).save(any());
+    }
+
+    // ── SGL-040 NOTIF-AUDIT — registro en notification_log ────────────────
+
+    @Test
+    @DisplayName("sendConfirmationEmail exitoso registra notificación como ENVIADO")
+    void testSendConfirmationEmail_ExitosoRegistraNotificacionEnviada() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendConfirmationEmail(appointment);
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.CONFIRMACION_CLIENTE, "juan.perez@example.cl");
+        verify(mockNotifLog, never()).logFailure(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("sendConfirmationEmail fallido registra notificación como FALLIDO antes de encolar")
+    void testSendConfirmationEmail_FallidoRegistraNotificacionFallida() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        emailService.sendConfirmationEmail(appointment);
+
+        verify(mockNotifLog).logFailure(1L, TipoEmail.CONFIRMACION_CLIENTE, "juan.perez@example.cl", "timeout");
+        verify(mockNotifLog, never()).logSuccess(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("sendAdminNewAppointmentEmail exitoso registra notificación al adminEmail")
+    void testSendAdminNewAppointmentEmail_ExitosoRegistraNotificacionAdmin() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendAdminNewAppointmentEmail(appointment);
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.NOTIF_ADMIN, "admin@test.cl");
+    }
+
+    @Test
+    @DisplayName("sendReminderEmail REMIND_24H exitoso registra notificación con tipo REMINDER_24H")
+    void testSendReminderEmail_24h_ExitosoRegistraNotificacion() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendReminderEmail(appointment, ReminderTipo.REMIND_24H);
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.REMINDER_24H, "juan.perez@example.cl");
+    }
+
+    @Test
+    @DisplayName("retryEmail exitoso registra notificación CONFIRMACION_CLIENTE como ENVIADO")
+    void testRetryEmail_ExitosoRegistraNotificacionEnviada() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.CONFIRMACION_CLIENTE);
+
+        emailService.retryEmail(entry, appointment);
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.CONFIRMACION_CLIENTE, "juan.perez@example.cl");
+        verify(mockNotifLog, never()).logFailure(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("retryEmail fallido registra notificación como FALLIDO y re-lanza la excepción")
+    void testRetryEmail_FallidoRegistraNotificacionYRelanza() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.CONFIRMACION_CLIENTE);
+
+        assertThrows(Exception.class, () -> emailService.retryEmail(entry, appointment));
+
+        verify(mockNotifLog).logFailure(1L, TipoEmail.CONFIRMACION_CLIENTE, "juan.perez@example.cl", "timeout");
+        verify(mockNotifLog, never()).logSuccess(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("retryEmail NOTIF_ADMIN usa adminEmail como destinatario en el log")
+    void testRetryEmail_NotifAdmin_UsaAdminEmailComoDestinatario() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.NOTIF_ADMIN);
+
+        emailService.retryEmail(entry, appointment);
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.NOTIF_ADMIN, "admin@test.cl");
     }
 
     private EmailRetryQueue buildRetryEntry(TipoEmail tipo) {

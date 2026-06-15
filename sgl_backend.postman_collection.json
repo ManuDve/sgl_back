@@ -428,6 +428,39 @@
       ]
     },
     {
+      "name": "Notificaciones - Admin",
+      "item": [
+        {
+          "name": "GET Historial de notificaciones por agendamiento",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/notifications/log?appointmentId={{appointmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "notifications", "log"],
+              "query": [
+                {
+                  "key": "appointmentId",
+                  "value": "{{appointmentId}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {

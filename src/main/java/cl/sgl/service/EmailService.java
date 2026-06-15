@@ -44,6 +44,7 @@ public class EmailService {
     private final String                    adminEmail;
     private final EmailTemplateBuilder      templateBuilder;
     private final EmailRetryQueueRepository retryQueueRepository;
+    private final NotificationLogService    notificationLogService;
 
     @Autowired
     public EmailService(
@@ -51,25 +52,29 @@ public class EmailService {
             @Value("${mailtrap.api.from-email}") String fromEmail,
             @Value("${admin.email:}")            String adminEmail,
             EmailTemplateBuilder                 templateBuilder,
-            EmailRetryQueueRepository            retryQueueRepository) {
+            EmailRetryQueueRepository            retryQueueRepository,
+            NotificationLogService               notificationLogService) {
         MailtrapConfig config = new MailtrapConfig.Builder()
             .token(apiToken)
             .build();
-        this.mailtrapClient      = MailtrapClientFactory.createMailtrapClient(config);
-        this.fromEmail           = fromEmail;
-        this.adminEmail          = adminEmail;
-        this.templateBuilder     = templateBuilder;
-        this.retryQueueRepository = retryQueueRepository;
+        this.mailtrapClient        = MailtrapClientFactory.createMailtrapClient(config);
+        this.fromEmail             = fromEmail;
+        this.adminEmail            = adminEmail;
+        this.templateBuilder       = templateBuilder;
+        this.retryQueueRepository  = retryQueueRepository;
+        this.notificationLogService = notificationLogService;
     }
 
     /** Constructor para tests unitarios: permite inyectar dependencias mock. */
     EmailService(MailtrapClient mailtrapClient, String fromEmail, String adminEmail,
-                 EmailTemplateBuilder templateBuilder, EmailRetryQueueRepository retryQueueRepository) {
-        this.mailtrapClient      = mailtrapClient;
-        this.fromEmail           = fromEmail;
-        this.adminEmail          = adminEmail;
-        this.templateBuilder     = templateBuilder;
-        this.retryQueueRepository = retryQueueRepository;
+                 EmailTemplateBuilder templateBuilder, EmailRetryQueueRepository retryQueueRepository,
+                 NotificationLogService notificationLogService) {
+        this.mailtrapClient        = mailtrapClient;
+        this.fromEmail             = fromEmail;
+        this.adminEmail            = adminEmail;
+        this.templateBuilder       = templateBuilder;
+        this.retryQueueRepository  = retryQueueRepository;
+        this.notificationLogService = notificationLogService;
     }
 
     /**
@@ -79,11 +84,13 @@ public class EmailService {
     public void sendConfirmationEmail(Appointment appointment) {
         try {
             mailtrapClient.send(buildConfirmationMail(appointment));
+            notificationLogService.logSuccess(appointment.getId(), TipoEmail.CONFIRMACION_CLIENTE, appointment.getEmail());
             log.info("Email de confirmación enviado → {} [{}]",
                 appointment.getEmail(), appointment.getIdExterno());
         } catch (Exception e) {
             log.error("No se pudo enviar email de confirmación para {} — {}",
                 appointment.getIdExterno(), e.getMessage());
+            notificationLogService.logFailure(appointment.getId(), TipoEmail.CONFIRMACION_CLIENTE, appointment.getEmail(), e.getMessage());
             enqueueRetry(appointment.getId(), TipoEmail.CONFIRMACION_CLIENTE, e.getMessage());
         }
     }
@@ -103,11 +110,13 @@ public class EmailService {
         }
         try {
             mailtrapClient.send(buildAdminMail(appointment));
+            notificationLogService.logSuccess(appointment.getId(), TipoEmail.NOTIF_ADMIN, adminEmail);
             log.info("Notificación admin enviada → {} [{}]",
                 adminEmail, appointment.getIdExterno());
         } catch (Exception e) {
             log.error("No se pudo enviar notificación admin para {} — {}",
                 appointment.getIdExterno(), e.getMessage());
+            notificationLogService.logFailure(appointment.getId(), TipoEmail.NOTIF_ADMIN, adminEmail, e.getMessage());
             enqueueRetry(appointment.getId(), TipoEmail.NOTIF_ADMIN, e.getMessage());
         }
     }
@@ -119,16 +128,18 @@ public class EmailService {
      * Historia: SGL-035 NOTIF-REMIND
      */
     public boolean sendReminderEmail(Appointment appointment, ReminderTipo tipo) {
+        TipoEmail tipoEmail = (tipo == ReminderTipo.REMIND_24H)
+            ? TipoEmail.REMINDER_24H : TipoEmail.REMINDER_2H;
         try {
             mailtrapClient.send(buildReminderMail(appointment, tipo));
+            notificationLogService.logSuccess(appointment.getId(), tipoEmail, appointment.getEmail());
             log.info("Recordatorio {} enviado → {} [{}]",
                 tipo, appointment.getEmail(), appointment.getIdExterno());
             return true;
         } catch (Exception e) {
             log.error("No se pudo enviar recordatorio {} para {} — {}",
                 tipo, appointment.getIdExterno(), e.getMessage());
-            TipoEmail tipoEmail = (tipo == ReminderTipo.REMIND_24H)
-                ? TipoEmail.REMINDER_24H : TipoEmail.REMINDER_2H;
+            notificationLogService.logFailure(appointment.getId(), tipoEmail, appointment.getEmail(), e.getMessage());
             enqueueRetry(appointment.getId(), tipoEmail, e.getMessage());
             return false;
         }
@@ -141,15 +152,23 @@ public class EmailService {
      * Historia: SGL-038 NOTIF-RETRY
      */
     void retryEmail(EmailRetryQueue entry, Appointment appointment) throws Exception {
+        String destinatario = (entry.getTipoEmail() == TipoEmail.NOTIF_ADMIN)
+            ? adminEmail : appointment.getEmail();
         MailtrapMail mail = switch (entry.getTipoEmail()) {
             case CONFIRMACION_CLIENTE -> buildConfirmationMail(appointment);
             case NOTIF_ADMIN          -> buildAdminMail(appointment);
             case REMINDER_24H         -> buildReminderMail(appointment, ReminderTipo.REMIND_24H);
             case REMINDER_2H          -> buildReminderMail(appointment, ReminderTipo.REMIND_2H);
         };
-        mailtrapClient.send(mail);
-        log.info("Reintento exitoso — tipo={} appt={}",
-            entry.getTipoEmail(), appointment.getIdExterno());
+        try {
+            mailtrapClient.send(mail);
+            notificationLogService.logSuccess(appointment.getId(), entry.getTipoEmail(), destinatario);
+            log.info("Reintento exitoso — tipo={} appt={}",
+                entry.getTipoEmail(), appointment.getIdExterno());
+        } catch (Exception e) {
+            notificationLogService.logFailure(appointment.getId(), entry.getTipoEmail(), destinatario, e.getMessage());
+            throw e;
+        }
     }
 
     // ── Mail builders ──────────────────────────────────────────────────────
