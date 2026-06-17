@@ -1,9 +1,13 @@
 package cl.sgl.controller;
 
+import cl.sgl.config.JwtUtil;
 import cl.sgl.dto.ApiResponse;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.CreateAppointmentRequest;
 import cl.sgl.dto.OtpRequest;
+import cl.sgl.dto.VerifyOtpRequest;
+import cl.sgl.dto.VerifyOtpResponse;
+import cl.sgl.exception.UnauthorizedException;
 import cl.sgl.service.AppointmentService;
 import cl.sgl.service.OtpService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,6 +59,7 @@ public class PublicAppointmentController {
 
     private final AppointmentService appointmentService;
     private final OtpService         otpService;
+    private final JwtUtil            jwtUtil;
 
     @PostMapping
     @Operation(
@@ -138,6 +143,45 @@ public class PublicAppointmentController {
             HttpStatus.OK.value(),
             "Si la información coincide, recibirás un código en tu correo en los próximos minutos.",
             null
+        ));
+    }
+
+    @PostMapping("/{idExterno}/verify-otp")
+    @Operation(
+        summary = "Verificar OTP y obtener token de gestión",
+        description = """
+            Valida el código OTP de 6 dígitos enviado al cliente. Si es correcto y no ha expirado,
+            retorna un token JWT de corta vida (10 minutos) que autoriza reagendar o cancelar
+            únicamente la cita indicada por idExterno.
+            Si el OTP es inválido o ha expirado, retorna 401.
+            No requiere autenticación.
+            """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "OTP válido — token de gestión emitido",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "Body inválido (campo otp ausente o vacío)"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+            description = "OTP incorrecto o expirado")
+    })
+    public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtp(
+            @Parameter(description = "ID externo en formato AG-XXXX-NNNN", example = "AG-ABCD-0001")
+            @PathVariable String idExterno,
+            @Valid @RequestBody VerifyOtpRequest request) {
+
+        log.info("POST /api/appointments/{}/verify-otp", idExterno);
+
+        if (!otpService.verifyOtp(idExterno, request.getOtp())) {
+            throw new UnauthorizedException("El código OTP es inválido o ha expirado.");
+        }
+
+        String token = jwtUtil.generateManagementToken(idExterno);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Identidad verificada. Token válido por 10 minutos.",
+            new VerifyOtpResponse(token, idExterno, 600)
         ));
     }
 

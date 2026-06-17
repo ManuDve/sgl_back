@@ -121,6 +121,24 @@ public class OtpService {
     }
 
     /**
+     * Busca la cita por idExterno y valida el OTP.
+     * Retorna false silenciosamente si la cita no existe (evita enumeración).
+     *
+     * @param idExterno identificador externo de la cita
+     * @param otp       código OTP ingresado por el cliente
+     * @return true si el OTP es válido y fue consumido
+     */
+    @Transactional
+    public boolean verifyOtp(String idExterno, String otp) {
+        Optional<Appointment> optAppt = appointmentRepository.findByIdExterno(idExterno);
+        if (optAppt.isEmpty()) {
+            log.warn("verify-otp para idExterno inexistente: {}", idExterno);
+            return false;
+        }
+        return validateOtp(optAppt.get().getId(), otp);
+    }
+
+    /**
      * Verifica si el email o teléfono del request coincide con el agendamiento.
      * La comparación de teléfono usa solo dígitos para tolerar distintos formatos.
      */

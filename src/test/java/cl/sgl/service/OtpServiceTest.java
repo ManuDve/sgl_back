@@ -233,6 +233,43 @@ class OtpServiceTest {
             otpService.requestOtp("AG-TEST-0010", new OtpRequest("ana@example.com", null)));
     }
 
+    // ── verifyOtp ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("verifyOtp con idExterno inexistente retorna false")
+    void testVerifyOtp_IdExternoInexistente_RetornaFalse() {
+        when(appointmentRepository.findByIdExterno("AG-XXXX-9999")).thenReturn(Optional.empty());
+
+        assertFalse(otpService.verifyOtp("AG-XXXX-9999", "123456"));
+        verify(otpRepository, never()).findByAppointmentIdAndOtpAndUsadoFalseAndExpiresAtAfter(
+            anyLong(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("verifyOtp con OTP válido retorna true")
+    void testVerifyOtp_OtpValido_RetornaTrue() {
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(appointment));
+        AppointmentOtp otp = AppointmentOtp.builder()
+            .id(1L).appointmentId(10L).otp("654321")
+            .expiresAt(LocalDateTime.now().plusMinutes(10)).usado(false)
+            .createdAt(LocalDateTime.now()).build();
+        when(otpRepository.findByAppointmentIdAndOtpAndUsadoFalseAndExpiresAtAfter(
+            eq(10L), eq("654321"), any())).thenReturn(Optional.of(otp));
+        when(otpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertTrue(otpService.verifyOtp("AG-TEST-0010", "654321"));
+    }
+
+    @Test
+    @DisplayName("verifyOtp con OTP inválido retorna false")
+    void testVerifyOtp_OtpInvalido_RetornaFalse() {
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(appointment));
+        when(otpRepository.findByAppointmentIdAndOtpAndUsadoFalseAndExpiresAtAfter(
+            anyLong(), anyString(), any())).thenReturn(Optional.empty());
+
+        assertFalse(otpService.verifyOtp("AG-TEST-0010", "000000"));
+    }
+
     // ── matchesIdentity ───────────────────────────────────────────────────
 
     @Test

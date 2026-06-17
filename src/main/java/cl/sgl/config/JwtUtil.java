@@ -14,10 +14,19 @@ import java.util.Date;
 
 /**
  * Utilitario para generar y validar JWT.
- * Historia: SGL-043 ADM-AUTH-JWT
+ * Emite dos tipos de token:
+ *  - Admin (role=ADMIN, 8h): para el panel administrativo.
+ *  - Gestión (type=GESTION, 10min): token de corta vida para que un cliente
+ *    reagende o cancele su propia cita tras verificar su identidad con OTP.
+ *
+ * Historias: SGL-043 ADM-AUTH-JWT, SGL-067 GES-VERIFY
  */
 @Component
 public class JwtUtil {
+
+    private static final long   MANAGEMENT_TOKEN_MILLIS = 10L * 60L * 1000L;
+    private static final String TYPE_CLAIM   = "type";
+    private static final String TYPE_GESTION = "GESTION";
 
     private final Key signingKey;
     private final long expirationMillis;
@@ -68,6 +77,51 @@ public class JwtUtil {
     public String extractRole(String token) {
         Object role = parseClaims(token).get("role");
         return role == null ? null : role.toString();
+    }
+
+    // ── Token de gestión (SGL-067 GES-VERIFY) ─────────────────────────────
+
+    /**
+     * Genera un JWT de corta vida (10 min) que autoriza gestionar una cita
+     * específica. Incluye claim {@code type=GESTION} para distinguirlo del
+     * token de administrador.
+     */
+    public String generateManagementToken(String idExterno) {
+        Date now = new Date();
+        return Jwts.builder()
+            .setSubject(idExterno)
+            .claim(TYPE_CLAIM, TYPE_GESTION)
+            .setIssuedAt(now)
+            .setExpiration(new Date(now.getTime() + MANAGEMENT_TOKEN_MILLIS))
+            .signWith(signingKey, SignatureAlgorithm.HS256)
+            .compact();
+    }
+
+    /**
+     * Valida que el token sea de gestión, esté vigente y corresponda al
+     * idExterno indicado.
+     */
+    public boolean isManagementTokenValid(String token, String idExterno) {
+        try {
+            Claims claims = parseClaims(token);
+            return TYPE_GESTION.equals(claims.get(TYPE_CLAIM))
+                && idExterno.equals(claims.getSubject());
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Extrae el idExterno del token de gestión.
+     *
+     * @throws JwtException si el token no es de tipo GESTION
+     */
+    public String extractManagementIdExterno(String token) {
+        Claims claims = parseClaims(token);
+        if (!TYPE_GESTION.equals(claims.get(TYPE_CLAIM))) {
+            throw new JwtException("El token no es de gestión");
+        }
+        return claims.getSubject();
     }
 }
 

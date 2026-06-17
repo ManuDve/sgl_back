@@ -373,6 +373,43 @@
           "response": []
         },
         {
+          "name": "POST Verificar OTP — token de gestión (GES-VERIFY)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/:idExterno/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                ":idExterno",
+                "verify-otp"
+              ],
+              "variable": [
+                {
+                  "key": "idExterno",
+                  "value": "AG-DOLF-0075",
+                  "description": "ID externo de la cita (formato AG-XXXX-NNNN)"
+                }
+              ]
+            },
+            "description": "Verifica el OTP enviado al cliente. Si es válido retorna un JWT de gestión (10 min) para reagendar/cancelar la cita. Si es inválido retorna 401. SGL-067 GES-VERIFY."
+          },
+          "response": []
+        },
+        {
           "name": "GET Días hábiles disponibles",
           "request": {
             "method": "GET",
