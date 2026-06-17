@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * PoC de integración con Transbank WebpayPlus.
@@ -51,6 +52,12 @@ public class WebpayController {
     private String frontendUrl;
 
     /**
+     * Mapa token → idExterno para recuperar el idExterno cuando Transbank cancela y
+     * no envía TBK_ORDER_ID (comportamiento intermitente en sandbox).
+     */
+    private final ConcurrentHashMap<String, String> pendingTokens = new ConcurrentHashMap<>();
+
+    /**
      * Inicia una transacción WebpayPlus para el agendamiento indicado.
      * Retorna el token y la URL del formulario de pago de Transbank.
      */
@@ -76,6 +83,9 @@ public class WebpayController {
                 appointment.getMonto().doubleValue(), // amount en CLP
                 returnUrl                             // URL de retorno POST
             );
+
+            // Guardar token → idExterno como fallback en caso de que TBK_ORDER_ID no llegue al cancelar
+            pendingTokens.put(tbkResponse.getToken(), idExterno);
 
             log.info("Transacción Webpay creada — buyOrder: {}, token: {}",
                 idExterno, tbkResponse.getToken());
@@ -111,14 +121,17 @@ public class WebpayController {
             @RequestParam(value = "TBK_ORDER_ID", required = false) String tbkOrderId,
             HttpServletResponse response) throws IOException {
 
-        // Cancelación o timeout: Transbank envía TBK_TOKEN y TBK_ORDER_ID (= buyOrder = idExterno)
+        // Cancelación o timeout: Transbank envía TBK_TOKEN y (a veces) TBK_ORDER_ID
         if (tokenWs == null) {
-            // TBK_ORDER_ID es el buyOrder que pasamos en create() — es directamente el idExterno
+            // Preferir TBK_ORDER_ID (buyOrder directo); si no llega, buscar en caché local
             String idExterno = (tbkOrderId != null && !tbkOrderId.isBlank())
                 ? tbkOrderId
                 : resolveIdFromTbkToken(tbkToken);
             log.warn("Pago cancelado o expirado — idExterno: {}, TBK_TOKEN: {}", idExterno, tbkToken);
-            response.sendRedirect(frontendUrl + "/confirmacion?id=" + idExterno + "&pago=cancelado");
+
+            String redirect = frontendUrl + "/confirmacion?pago=cancelado";
+            if (idExterno != null && !idExterno.isBlank()) redirect += "&id=" + idExterno;
+            response.sendRedirect(redirect);
             return;
         }
 
@@ -150,20 +163,34 @@ public class WebpayController {
 
         } catch (Exception e) {
             log.error("Error en commit Webpay — token: {}, error: {}", tokenWs, e.getMessage());
-            // Usar el buyOrder obtenido antes del commit para que el frontend pueda ofrecer reintentar
             String safeId = (tbkOrderId != null && !tbkOrderId.isBlank()) ? tbkOrderId : idExternoFallback;
-            response.sendRedirect(frontendUrl + "/confirmacion?id=" + safeId + "&pago=error");
+            String redirect = frontendUrl + "/confirmacion?pago=error";
+            if (safeId != null && !safeId.isBlank()) redirect += "&id=" + safeId;
+            response.sendRedirect(redirect);
         }
     }
 
-    /** Extrae el buyOrder del TBK_TOKEN para el redirect de cancelación. */
+    /**
+     * Intenta resolver el idExterno desde el token: primero en caché local (guardada al hacer init),
+     * luego consultando la API de Transbank. Retorna null si no es posible resolver.
+     */
     private String resolveIdFromTbkToken(String tbkToken) {
+        if (tbkToken == null) return null;
+
+        // Caché local: siempre disponible mientras el proceso no se haya reiniciado
+        String cached = pendingTokens.remove(tbkToken);
+        if (cached != null) {
+            log.debug("idExterno resuelto desde caché local para token {}", tbkToken.substring(0, 8) + "...");
+            return cached;
+        }
+
+        // Fallback: consultar API de Transbank (puede fallar en transacciones canceladas)
         try {
-            // Intentar obtener el buyOrder desde la transacción abortada
             var status = webpayTransaction.status(tbkToken);
             return status.getBuyOrder();
         } catch (Exception e) {
-            return "desconocido";
+            log.warn("No se pudo obtener buyOrder desde TBK_TOKEN (caché vacía): {}", e.getMessage());
+            return null;
         }
     }
 }
