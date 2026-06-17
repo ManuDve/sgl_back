@@ -173,4 +173,27 @@ class EmailTemplateBuilderTest {
         assertTrue(html.contains("class=\"logo\">SGL"),             "debe incluir el header SGL");
         assertTrue(html.contains("class=\"ftr\""),                  "debe incluir el footer");
     }
+
+    // ── buildOtpEmail — SGL-066 GES-OTP ──────────────────────────────────
+
+    @Test
+    @DisplayName("buildOtpEmail incluye el código OTP, nombre del cliente e idExterno")
+    void testBuildOtpEmail_ContenidoCompleto() {
+        String html = builder.buildOtpEmail(appointment, "482917");
+
+        assertTrue(html.contains("482917"),        "debe incluir el código OTP");
+        assertTrue(html.contains("Juan Pérez"),    "debe incluir el nombre del cliente");
+        assertTrue(html.contains("AG-ABCD-0001"), "debe incluir el idExterno");
+        assertTrue(html.contains("15 minutos"),   "debe mencionar el tiempo de expiración");
+        assertTrue(html.contains("class=\"logo\">SGL"), "debe incluir el header SGL");
+        assertTrue(html.contains("class=\"ftr\""),       "debe incluir el footer");
+    }
+
+    @Test
+    @DisplayName("buildOtpEmail incluye advertencia de seguridad para ignorar si no lo solicitó")
+    void testBuildOtpEmail_IncluyeAdvertenciaSeguridad() {
+        String html = builder.buildOtpEmail(appointment, "000000");
+
+        assertTrue(html.contains("no solicitaste este código"), "debe incluir la advertencia de seguridad");
+    }
 }

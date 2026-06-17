@@ -11,8 +11,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Manejador global de excepciones para la API REST
@@ -28,18 +29,25 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
             MethodArgumentNotValidException ex,
             WebRequest request) {
-        
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-            errors.put(error.getField(), error.getDefaultMessage())
+
+        Map<String, String> errors = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(fieldError ->
+            errors.put(fieldError.getField(), fieldError.getDefaultMessage())
         );
+        // Errores de clase (@AssertTrue, @AssertFalse) — sin campo específico
+        ex.getBindingResult().getGlobalErrors().forEach(globalError ->
+            errors.put(globalError.getObjectName(), globalError.getDefaultMessage())
+        );
+
+        String resumen = errors.values().stream().collect(Collectors.joining("; "));
 
         ApiResponse<Map<String, String>> response = ApiResponse.error(
             HttpStatus.BAD_REQUEST.value(),
-            "Los datos enviados son inválidos",
-            errors.toString()
+            resumen
         );
-        response.setData(errors);
+        if (errors.size() > 1) {
+            response.setData(errors);
+        }
 
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }

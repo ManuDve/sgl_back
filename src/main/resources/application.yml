@@ -63,7 +63,7 @@ twilio:
 
 transbank:
   commerce-code:  ${TRANSBANK_COMMERCE_CODE:597055555532}
-  api-key:        ${TRANSBANK_API_KEY:579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C}
+  api-key:        ${TRANSBANK_API_KEY}
   environment:    ${TRANSBANK_ENV:integration}
   return-url:     ${TRANSBANK_RETURN_URL:http://localhost:8080/api/webpay/commit}
   frontend-url:   ${TRANSBANK_FRONTEND_URL:http://localhost:4321}

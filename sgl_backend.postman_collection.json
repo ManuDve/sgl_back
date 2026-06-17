@@ -15,8 +15,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
             }
           }
         }
@@ -51,8 +55,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/admin/services",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "services"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "services"
+              ]
             }
           }
         },
@@ -73,8 +83,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/services",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "services"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "services"
+              ]
             }
           }
         },
@@ -95,8 +111,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "services", "{{serviceId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "services",
+                "{{serviceId}}"
+              ]
             }
           }
         },
@@ -126,8 +149,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "services", "{{serviceId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "services",
+                "{{serviceId}}"
+              ]
             }
           }
         },
@@ -136,14 +166,27 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "DELETE",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "services", "{{serviceId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "services",
+                "{{serviceId}}"
+              ]
             }
           }
         },
@@ -152,18 +195,37 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"precio\": 450000\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}/precio",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "services", "{{serviceId}}", "precio"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "services",
+                "{{serviceId}}",
+                "precio"
+              ]
             }
           }
         },
@@ -172,14 +234,28 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/services/{{serviceId}}/historial-precios",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "services", "{{serviceId}}", "historial-precios"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "services",
+                "{{serviceId}}",
+                "historial-precios"
+              ]
             }
           }
         }
@@ -195,8 +271,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/public/services",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "public", "services"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "public",
+                "services"
+              ]
             }
           }
         }
@@ -212,8 +294,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/services",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "services"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "services"
+              ]
             }
           }
         }
@@ -226,17 +313,64 @@
           "name": "POST Crear agendamiento",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"nombreCliente\": \"Juan Pérez González\",\n  \"email\": \"juan.perez@gmail.com\",\n  \"telefono\": \"+56912345678\",\n  \"serviceId\": 1,\n  \"fecha\": \"2026-06-10\",\n  \"hora\": \"10:00:00\",\n  \"aceptaTerminos\": true,\n  \"descripcion\": \"Necesito orientación sobre un proceso de divorcio de mutuo acuerdo.\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/appointments",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "appointments"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments"
+              ]
             }
           }
+        },
+        {
+          "name": "POST Solicitar OTP (GES-OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ana.martinez@example.com\",\n  \"telefono\": null\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/:idExterno/request-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                ":idExterno",
+                "request-otp"
+              ],
+              "variable": [
+                {
+                  "key": "idExterno",
+                  "value": "AG-DOLF-0075",
+                  "description": "ID externo de la cita (formato AG-XXXX-NNNN)"
+                }
+              ]
+            },
+            "description": "Solicita un OTP de verificación de identidad para gestionar una cita. Proporcionar email O teléfono que coincida con la cita. La respuesta es siempre 200 para evitar enumeración. SGL-066 GES-OTP."
+          },
+          "response": []
         },
         {
           "name": "GET Días hábiles disponibles",
@@ -245,11 +379,24 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/appointments/days-available?days=30",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "appointments", "days-available"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "days-available"
+              ],
               "query": [
-                { "key": "from",  "value": "", "disabled": true },
-                { "key": "days",  "value": "30" }
+                {
+                  "key": "from",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "days",
+                  "value": "30"
+                }
               ]
             }
           }
@@ -261,9 +408,20 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/appointments/hours-available?date=2026-06-01",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "appointments", "hours-available"],
-              "query": [{ "key": "date", "value": "2026-06-01" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "hours-available"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2026-06-01"
+                }
+              ]
             }
           }
         },
@@ -274,8 +432,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/appointments/ping",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "appointments", "ping"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "ping"
+              ]
             }
           }
         }
@@ -289,15 +453,32 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments?status=pending",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments"],
-              "query": [{ "key": "status", "value": "pending" }]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
             }
           }
         },
@@ -306,19 +487,47 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments?search=juan&estado=PENDING&desde=2026-06-01&hasta=2026-06-30",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments"
+              ],
               "query": [
-                { "key": "search", "value": "juan",       "description": "Busca en nombre, email e idExterno (case-insensitive)" },
-                { "key": "estado", "value": "PENDING",    "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED (inglés o español)" },
-                { "key": "desde",  "value": "2026-06-01", "description": "Fecha mínima inclusiva YYYY-MM-DD" },
-                { "key": "hasta",  "value": "2026-06-30", "description": "Fecha máxima inclusiva YYYY-MM-DD" }
+                {
+                  "key": "search",
+                  "value": "juan",
+                  "description": "Busca en nombre, email e idExterno (case-insensitive)"
+                },
+                {
+                  "key": "estado",
+                  "value": "PENDING",
+                  "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED (inglés o español)"
+                },
+                {
+                  "key": "desde",
+                  "value": "2026-06-01",
+                  "description": "Fecha mínima inclusiva YYYY-MM-DD"
+                },
+                {
+                  "key": "hasta",
+                  "value": "2026-06-30",
+                  "description": "Fecha máxima inclusiva YYYY-MM-DD"
+                }
               ]
             }
           }
@@ -326,28 +535,78 @@
         {
           "name": "PATCH Confirmar pago",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"codigoTransaccion\": \"123456789\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoTransaccion\": \"123456789\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments/{{appointmentId}}/pago",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments", "{{appointmentId}}", "pago"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "{{appointmentId}}",
+                "pago"
+              ]
             }
           }
         },
         {
           "name": "PATCH Cambiar estado",
           "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"estado\": \"CONFIRMADO\"\n}" },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estado\": \"CONFIRMADO\"\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments/{{appointmentId}}/estado",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments", "{{appointmentId}}", "estado"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "{{appointmentId}}",
+                "estado"
+              ]
             }
           }
         },
@@ -356,19 +615,50 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments/export?desde=2026-01-01&hasta=2026-12-31",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments", "export"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "export"
+              ],
               "query": [
-                { "key": "search", "value": "",            "disabled": true, "description": "Busca en nombre, email e idExterno" },
-                { "key": "estado", "value": "",            "disabled": true, "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED" },
-                { "key": "desde",  "value": "2026-01-01", "description": "Fecha mínima inclusiva YYYY-MM-DD" },
-                { "key": "hasta",  "value": "2026-12-31", "description": "Fecha máxima inclusiva YYYY-MM-DD" }
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Busca en nombre, email e idExterno"
+                },
+                {
+                  "key": "estado",
+                  "value": "",
+                  "disabled": true,
+                  "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED"
+                },
+                {
+                  "key": "desde",
+                  "value": "2026-01-01",
+                  "description": "Fecha mínima inclusiva YYYY-MM-DD"
+                },
+                {
+                  "key": "hasta",
+                  "value": "2026-12-31",
+                  "description": "Fecha máxima inclusiva YYYY-MM-DD"
+                }
               ]
             }
           }
@@ -378,14 +668,27 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments/{{appointmentId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments", "{{appointmentId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "{{appointmentId}}"
+              ]
             }
           }
         },
@@ -394,14 +697,26 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments"
+              ]
             }
           }
         },
@@ -410,17 +725,38 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/appointments/calendario?mes=2026-05&semana=1",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "appointments", "calendario"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "calendario"
+              ],
               "query": [
-                { "key": "mes", "value": "2026-05", "description": "Mes en formato YYYY-MM" },
-                { "key": "semana", "value": "1", "description": "Semana dentro del mes (1-indexado, default: 1)" }
+                {
+                  "key": "mes",
+                  "value": "2026-05",
+                  "description": "Mes en formato YYYY-MM"
+                },
+                {
+                  "key": "semana",
+                  "value": "1",
+                  "description": "Semana dentro del mes (1-indexado, default: 1)"
+                }
               ]
             }
           }
@@ -447,8 +783,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/admin/notifications/log?appointmentId={{appointmentId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "admin", "notifications", "log"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "notifications",
+                "log"
+              ],
               "query": [
                 {
                   "key": "appointmentId",
@@ -479,8 +822,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
             }
           }
         }

@@ -467,6 +467,56 @@ class EmailServiceTest {
         verify(mockNotifLog).logSuccess(1L, TipoEmail.NOTIF_ADMIN, "admin@test.cl");
     }
 
+    // ── SGL-066 GES-OTP — sendOtpEmail ───────────────────────────────────
+
+    @Test
+    @DisplayName("sendOtpEmail envía email al cliente con asunto que contiene el idExterno")
+    void testSendOtpEmail_DatosCorrectos() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(io.mailtrap.model.response.emails.SendResponse.class));
+
+        emailService.sendOtpEmail(appointment, "123456");
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        MailtrapMail mail = captor.getValue();
+        assertEquals("juan.perez@example.cl", mail.getTo().get(0).getEmail());
+        assertEquals("no-reply@sgl.cl",        mail.getFrom().getEmail());
+        assertTrue(mail.getSubject().contains("AG-ABCD-0001"), "asunto debe incluir el idExterno");
+        assertTrue(mail.getHtml().contains("123456"),          "html debe incluir el código OTP");
+    }
+
+    @Test
+    @DisplayName("sendOtpEmail exitoso registra notificación con tipo OTP_VERIFICACION")
+    void testSendOtpEmail_ExitosoRegistraNotificacion() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(io.mailtrap.model.response.emails.SendResponse.class));
+
+        emailService.sendOtpEmail(appointment, "654321");
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.OTP_VERIFICACION, "juan.perez@example.cl");
+        verify(mockNotifLog, never()).logFailure(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("sendOtpEmail no encola en retry queue si falla (OTP expira en 15 min)")
+    void testSendOtpEmail_FalloNoEncola() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        assertDoesNotThrow(() -> emailService.sendOtpEmail(appointment, "999999"));
+
+        verify(mockRetryQueue, never()).save(any());
+        verify(mockNotifLog).logFailure(eq(1L), eq(TipoEmail.OTP_VERIFICACION),
+            eq("juan.perez@example.cl"), anyString());
+    }
+
+    @Test
+    @DisplayName("retryEmail OTP_VERIFICACION lanza IllegalStateException — no se puede reintentar")
+    void testRetryEmail_OtpVerificacion_LanzaIllegalStateException() {
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.OTP_VERIFICACION);
+
+        assertThrows(IllegalStateException.class, () -> emailService.retryEmail(entry, appointment));
+        verifyNoInteractions(mockClient);
+    }
+
     private EmailRetryQueue buildRetryEntry(TipoEmail tipo) {
         return EmailRetryQueue.builder()
             .id(1L).appointmentId(1L).tipoEmail(tipo).intentos(1)

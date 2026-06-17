@@ -216,6 +216,38 @@ public class EmailTemplateBuilder {
         );
     }
 
+    /**
+     * Email con código OTP para verificar identidad antes de reagendar o cancelar.
+     * Historia: SGL-066 GES-OTP
+     *
+     * @param a    agendamiento del cliente
+     * @param otp  código de 6 dígitos generado
+     */
+    public String buildOtpEmail(Appointment a, String otp) {
+        String body =
+            "<p style=\"font-size:16px;color:#222;margin:0 0 14px;\">Estimado/a " +
+            "<strong>" + a.getNombreCliente() + "</strong>,</p>" +
+            "<p class=\"note\">Has solicitado un código de verificación para gestionar tu cita " +
+            "<span class=\"id\">" + a.getIdExterno() + "</span>.</p>" +
+            "<p class=\"note\" style=\"margin:0 0 8px;\">Tu código es:</p>" +
+            "<div style=\"text-align:center;margin:20px 0;\">" +
+              "<span style=\"display:inline-block;background:#0A0A0A;color:#C9A84C;" +
+                     "font-size:36px;font-weight:bold;font-family:monospace;" +
+                     "letter-spacing:12px;padding:16px 32px;border-radius:8px;" +
+                     "border:2px solid #C9A84C40;\">" + otp + "</span>" +
+            "</div>" +
+            "<p class=\"note\" style=\"color:#888;\">Este código es válido por <strong>15 minutos</strong>. " +
+            "No lo compartas con nadie.</p>" +
+            "<p class=\"note\" style=\"color:#888;\">Si no solicitaste este código, ignora este mensaje — " +
+            "tu cita no se modificará.</p>";
+
+        return wrap(
+            "Estudio Jurídico · Santiago, Chile",
+            body,
+            "Este mensaje fue generado automáticamente, no respondas a este correo."
+        );
+    }
+
     // ── Helpers de formato (package-private para tests) ────────────────
 
     static String formatFecha(LocalDate fecha) {

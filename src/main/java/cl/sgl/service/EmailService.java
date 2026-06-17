@@ -159,6 +159,7 @@ public class EmailService {
             case NOTIF_ADMIN          -> buildAdminMail(appointment);
             case REMINDER_24H         -> buildReminderMail(appointment, ReminderTipo.REMIND_24H);
             case REMINDER_2H          -> buildReminderMail(appointment, ReminderTipo.REMIND_2H);
+            case OTP_VERIFICACION     -> throw new IllegalStateException("OTP no se reintenta — código expirado");
         };
         try {
             mailtrapClient.send(mail);
@@ -204,6 +205,29 @@ public class EmailService {
             .subject(subject)
             .html(html)
             .build();
+    }
+
+    /**
+     * Envía el código OTP al cliente para verificar identidad.
+     * No encola reintento: si falla, el cliente puede solicitar otro código.
+     * Registra en notification_log para auditoría.
+     *
+     * Historia: SGL-066 GES-OTP
+     */
+    public void sendOtpEmail(Appointment appointment, String otp) {
+        try {
+            mailtrapClient.send(MailtrapMail.builder()
+                .from(new Address(fromEmail, FROM_NAME))
+                .to(List.of(new Address(appointment.getEmail())))
+                .subject("Tu código de verificación — cita " + appointment.getIdExterno())
+                .html(templateBuilder.buildOtpEmail(appointment, otp))
+                .build());
+            notificationLogService.logSuccess(appointment.getId(), TipoEmail.OTP_VERIFICACION, appointment.getEmail());
+            log.info("Email OTP enviado → {} [{}]", appointment.getEmail(), appointment.getIdExterno());
+        } catch (Exception e) {
+            log.error("No se pudo enviar email OTP para {} — {}", appointment.getIdExterno(), e.getMessage());
+            notificationLogService.logFailure(appointment.getId(), TipoEmail.OTP_VERIFICACION, appointment.getEmail(), e.getMessage());
+        }
     }
 
     // ── Cola de reintento ──────────────────────────────────────────────────

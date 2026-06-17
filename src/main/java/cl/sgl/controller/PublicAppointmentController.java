@@ -3,7 +3,9 @@ package cl.sgl.controller;
 import cl.sgl.dto.ApiResponse;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.CreateAppointmentRequest;
+import cl.sgl.dto.OtpRequest;
 import cl.sgl.service.AppointmentService;
+import cl.sgl.service.OtpService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -36,11 +38,13 @@ import java.util.Map;
  * Rutas:
  * - POST /api/appointments                                   → crear agendamiento
  * - GET  /api/appointments/{idExterno}                       → detalle público de agendamiento
+ * - POST /api/appointments/{idExterno}/request-otp          → solicitar OTP de verificación
  * - GET  /api/appointments/ping                              → health check
  * - GET  /api/appointments/hours-available?date=...          → horas disponibles
  * - GET  /api/appointments/days-available?from=...&days=30   → días hábiles disponibles
  *
- * Historias: SGL-016 AG-NOLOGIN, SGL-021 AG-HORAS, SGL-020 AG-FECHAS, SGL-024 AG-IDEXTERNO
+ * Historias: SGL-016 AG-NOLOGIN, SGL-021 AG-HORAS, SGL-020 AG-FECHAS, SGL-024 AG-IDEXTERNO,
+ *            SGL-066 GES-OTP
  */
 @RestController
 @RequestMapping("/api/appointments")
@@ -50,6 +54,7 @@ import java.util.Map;
 public class PublicAppointmentController {
 
     private final AppointmentService appointmentService;
+    private final OtpService         otpService;
 
     @PostMapping
     @Operation(
@@ -108,6 +113,31 @@ public class PublicAppointmentController {
             HttpStatus.OK.value(),
             "Agendamiento obtenido exitosamente",
             detail
+        ));
+    }
+
+    @PostMapping("/{idExterno}/request-otp")
+    @Operation(
+        summary = "Solicitar OTP de verificación",
+        description = """
+            Solicita un código OTP de 6 dígitos para verificar identidad antes de reagendar o cancelar.
+            El cliente debe proporcionar el email O teléfono que usó al agendar.
+            La respuesta es siempre la misma, independientemente de si la cita existe o si los datos
+            coinciden, para evitar enumeración de citas.
+            No requiere autenticación.
+            """
+    )
+    public ResponseEntity<ApiResponse<Void>> requestOtp(
+            @Parameter(description = "ID externo en formato AG-XXXX-NNNN", example = "AG-ABCD-0001")
+            @PathVariable String idExterno,
+            @Valid @RequestBody OtpRequest request) {
+
+        log.info("POST /api/appointments/{}/request-otp", idExterno);
+        otpService.requestOtp(idExterno, request);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Si la información coincide, recibirás un código en tu correo en los próximos minutos.",
+            null
         ));
     }
 
