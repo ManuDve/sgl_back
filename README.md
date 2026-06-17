@@ -1,26 +1,26 @@
 # SGL Backend
 
-API REST de SGL Plataforma de Reserva y Coordinación Jurídica. Gestiona agendamientos de consultas juridicas, notificaciones por email, autenticación de administradores y pagos con Transbank Webpay Plus.
+API REST de SGL Plataforma de Reserva y Coordinación Jurídica. Gestiona agendamientos de consultas juriíicas, notificaciones por email, autenticación de administradores y pagos con Transbank Webpay Plus.
 
-## Descripcion del proyecto
+## Descripción del proyecto
 
 SGL es un sistema para un estudio jurídico. Esta API expone dos grupos de endpoints: uno público para que los clientes puedan agendar consultas sin crear una cuenta, y uno protegido con JWT para que los administradores gestionen agendamientos, confirmen pagos y administren los servicios del estudio.
 
-El sistema incluye un modulo de notificaciones con reintentos automaticos, un registro de auditoría de emails enviados e integración con Transbank para pagos en línea.
+El sistema incluye un módulo de notificaciones con reintentos automáticos, un registro de auditoría de emails enviados e integración con Transbank para pagos en línea.
 
-## Tecnologias
+## Tecnologías
 
 - Java 21
 - Spring Boot 3.4.5
 - PostgreSQL 15
 - Flyway para migraciones de base de datos
-- Spring Security con autenticacion JWT
+- Spring Security con autenticación JWT
 - Mailtrap SDK para emails transaccionales
 - Transbank SDK para pagos con Webpay Plus
 - JUnit 5 y Mockito para pruebas unitarias
-- JaCoCo para reporte de cobertura de codigo
-- Bucket4j para rate limiting en endpoints publicos
-- OWASP HTML Sanitizer para prevencion de XSS
+- JaCoCo para reporte de cobertura de código
+- Bucket4j para rate limiting en endpoints públicos
+- OWASP HTML Sanitizer para prevención de XSS
 - Maven como herramienta de build
 - Docker y Docker Compose para la base de datos local
 
@@ -66,7 +66,7 @@ SPRING_PROFILES_ACTIVE=dev
 MAILTRAP_API_TOKEN=<tu_token>
 ```
 
-**3. Ejecutar la aplicacion**
+**3. Ejecutar la aplicación**
 
 ```bash
 ./mvnw spring-boot:run
@@ -76,7 +76,7 @@ MAILTRAP_API_TOKEN=<tu_token>
 - Health check: http://localhost:8080/api/health
 - Swagger UI: http://localhost:8080/swagger-ui.html
 
-Con el perfil `dev` activo, el sistema carga datos de prueba automaticamente al iniciar.
+Con el perfil `dev` activo, el sistema carga datos de prueba automáticamente al iniciar.
 
 ## Pruebas
 
@@ -84,7 +84,7 @@ Con el perfil `dev` activo, el sistema carga datos de prueba automaticamente al 
 ./mvnw test
 ```
 
-Reporte de cobertura con JaCoCo (minimo 60% de lineas):
+Reporte de cobertura con JaCoCo (minimo 60% de líneas):
 
 ```bash
 ./mvnw test jacoco:report
