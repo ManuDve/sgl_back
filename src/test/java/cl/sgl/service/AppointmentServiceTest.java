@@ -261,8 +261,8 @@ class AppointmentServiceTest {
         assertEquals(pendingAppointment.getMonto(), result.getMontoConfirmado());
         assertNotNull(result.getFechaPago());
         verify(appointmentRepository).save(any(Appointment.class));
-        // El email se envía al confirmar pago manual
         verify(emailService).sendConfirmationEmail(any(Appointment.class));
+        verify(whatsAppService).sendPaymentConfirmedWhatsApp(any(Appointment.class));
     }
 
     @Test
@@ -595,6 +595,7 @@ class AppointmentServiceTest {
         assertNotNull(pendingAppointment.getFechaPago());
         verify(appointmentRepository).save(any(Appointment.class));
         verify(emailService).sendConfirmationEmail(any(Appointment.class));
+        verify(whatsAppService).sendPaymentConfirmedWhatsApp(any(Appointment.class));
     }
 
     @Test
@@ -608,6 +609,7 @@ class AppointmentServiceTest {
                 "AG-XXXX-9999", "AUTH-999", new BigDecimal("500000")));
 
         verify(emailService, never()).sendConfirmationEmail(any());
+        verify(whatsAppService, never()).sendPaymentConfirmedWhatsApp(any());
     }
 
     // ── SGL-049 ADM-CAL ───────────────────────────────────────────

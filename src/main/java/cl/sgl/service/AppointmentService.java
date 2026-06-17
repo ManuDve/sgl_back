@@ -372,6 +372,7 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
         log.info("Pago Webpay confirmado — idExterno: {}, auth: {}", idExterno, authorizationCode);
         emailService.sendConfirmationEmail(saved);
+        whatsAppService.sendPaymentConfirmedWhatsApp(saved); // SGL-028
     }
 
     /**
@@ -410,6 +411,7 @@ public class AppointmentService {
         log.info("Pago confirmado — ID={} | codigo={} | monto={}",
             id, request.getCodigoTransaccion(), appointment.getMonto());
         emailService.sendConfirmationEmail(saved);
+        whatsAppService.sendPaymentConfirmedWhatsApp(saved); // SGL-028
 
         return mapToDetail(saved);
     }

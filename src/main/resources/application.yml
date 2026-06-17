@@ -55,10 +55,11 @@ mailtrap:
     from-email: ${MAILTRAP_FROM_EMAIL:no-reply@manudavid.cl}
 
 twilio:
-  account-sid:    ${TWILIO_ACCOUNT_SID:}
-  auth-token:     ${TWILIO_AUTH_TOKEN:}
-  whatsapp-from:  ${TWILIO_WHATSAPP_FROM:}
-  content-sid:    ${TWILIO_CONTENT_SID:}   # SID del Content Template HX... (obligatorio para mensajes business-initiated)
+  account-sid:          ${TWILIO_ACCOUNT_SID:}
+  auth-token:           ${TWILIO_AUTH_TOKEN:}
+  whatsapp-from:        ${TWILIO_WHATSAPP_FROM:}
+  content-sid:          ${TWILIO_CONTENT_SID:}          # Content Template de agendamiento HX... (business-initiated)
+  payment-content-sid:  ${TWILIO_PAYMENT_CONTENT_SID:}  # Content Template de confirmación de pago HX...
 
 transbank:
   commerce-code:  ${TRANSBANK_COMMERCE_CODE:597055555532}

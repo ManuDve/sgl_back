@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 /**
  * Tests unitarios para WhatsAppService.
  *
- * Historia: SGL-034 NOTIF-WA-01
+ * Historia: SGL-034 NOTIF-WA-01, SGL-028 AG-WA-CONF
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("WhatsAppService Tests")
@@ -57,6 +57,106 @@ class WhatsAppServiceTest {
             .createdAt(LocalDateTime.now())
             .updatedAt(LocalDateTime.now())
             .build();
+    }
+
+    // ── sendPaymentConfirmedWhatsApp ──────────────────────────────────────────
+
+    @Test
+    @DisplayName("sendPaymentConfirmedWhatsApp configurado sin payment SID envía texto libre y retorna true")
+    void testSendPaymentConfirmedWhatsApp_Configurado_EnviaYRetornaTrue() {
+        WhatsAppService service = spy(new WhatsAppService("+14155238886", true, notificationLogService));
+        doNothing().when(service).doSendFreeform(anyString(), anyString());
+
+        boolean result = service.sendPaymentConfirmedWhatsApp(appointment);
+
+        assertTrue(result);
+        verify(service).doSendFreeform(eq("+56912345678"), anyString());
+        verify(service, never()).doSendWithTemplate(anyString(), anyString(), anyString());
+        verify(notificationLogService).logSuccess(eq(1L), eq(TipoEmail.CONFIRMACION_CLIENTE),
+            eq(NotificationLogService.CANAL_WHATSAPP), eq("+56912345678"));
+    }
+
+    @Test
+    @DisplayName("sendPaymentConfirmedWhatsApp no configurado retorna false sin enviar")
+    void testSendPaymentConfirmedWhatsApp_NoConfigurado_RetornaFalse() {
+        WhatsAppService service = new WhatsAppService("+14155238886", false, notificationLogService);
+
+        boolean result = service.sendPaymentConfirmedWhatsApp(appointment);
+
+        assertFalse(result);
+        verifyNoInteractions(notificationLogService);
+    }
+
+    @Test
+    @DisplayName("sendPaymentConfirmedWhatsApp falla en envío retorna false y registra error")
+    void testSendPaymentConfirmedWhatsApp_FallaEnvio_RetornaFalseYRegistraError() {
+        WhatsAppService service = spy(new WhatsAppService("+14155238886", true, notificationLogService));
+        doThrow(new RuntimeException("timeout")).when(service).doSendFreeform(anyString(), anyString());
+
+        boolean result = service.sendPaymentConfirmedWhatsApp(appointment);
+
+        assertFalse(result);
+        verify(notificationLogService).logFailure(eq(1L), eq(TipoEmail.CONFIRMACION_CLIENTE),
+            eq(NotificationLogService.CANAL_WHATSAPP), eq("+56912345678"), contains("timeout"));
+        verify(notificationLogService, never()).logSuccess(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("sendPaymentConfirmedWhatsApp mensaje texto libre contiene idExterno, fecha y hora")
+    void testSendPaymentConfirmedWhatsApp_MensajeContieneIdFechaHora() {
+        WhatsAppService service = spy(new WhatsAppService("+14155238886", true, notificationLogService));
+        doNothing().when(service).doSendFreeform(anyString(), anyString());
+
+        service.sendPaymentConfirmedWhatsApp(appointment);
+
+        verify(service).doSendFreeform(anyString(), argThat(body ->
+            body.contains("AG-2026-0001") &&
+            body.contains("10:00") &&
+            body.contains("confirmado")
+        ));
+    }
+
+    @Test
+    @DisplayName("sendPaymentConfirmedWhatsApp con appointment SID (sin payment SID) usa texto libre")
+    void testSendPaymentConfirmedWhatsApp_SoloAppointmentSid_UsaTextoLibre() {
+        WhatsAppService service = spy(
+            new WhatsAppService("+14155238886", true, "HXappointment", notificationLogService));
+        doNothing().when(service).doSendFreeform(anyString(), anyString());
+
+        service.sendPaymentConfirmedWhatsApp(appointment);
+
+        verify(service).doSendFreeform(anyString(), anyString());
+        verify(service, never()).doSendWithTemplate(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("sendPaymentConfirmedWhatsApp con payment SID usa doSendWithTemplate")
+    void testSendPaymentConfirmedWhatsApp_ConPaymentSid_UsaDoSendWithTemplate() {
+        WhatsAppService service = spy(
+            new WhatsAppService("+14155238886", true, "", "HXpayment123", notificationLogService));
+        doNothing().when(service).doSendWithTemplate(anyString(), anyString(), anyString());
+
+        boolean result = service.sendPaymentConfirmedWhatsApp(appointment);
+
+        assertTrue(result);
+        verify(service).doSendWithTemplate(eq("+56912345678"), eq("HXpayment123"), anyString());
+        verify(service, never()).doSendFreeform(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("sendPaymentConfirmedWhatsApp con payment SID variables JSON contienen idExterno, fecha y hora")
+    void testSendPaymentConfirmedWhatsApp_ConPaymentSid_VariablesContienenDatos() {
+        WhatsAppService service = spy(
+            new WhatsAppService("+14155238886", true, "", "HXpayment123", notificationLogService));
+        doNothing().when(service).doSendWithTemplate(anyString(), anyString(), anyString());
+
+        service.sendPaymentConfirmedWhatsApp(appointment);
+
+        verify(service).doSendWithTemplate(anyString(), anyString(), argThat(vars ->
+            vars.contains("AG-2026-0001") &&
+            vars.contains("20/6") &&
+            vars.contains("10:00")
+        ));
     }
 
     // ── sendConfirmationWhatsApp — flujo general ──────────────────────────────
