@@ -54,6 +54,7 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final LegalServiceRepository legalServiceRepository;
     private final EmailService emailService;
+    private final WhatsAppService whatsAppService;
 
     // ── CSV helpers (SGL-051) ─────────────────────────────────────────────
 
@@ -335,6 +336,7 @@ public class AppointmentService {
         // Email de confirmación al cliente se envía solo cuando el pago es aprobado.
         // Notificación al admin se envía inmediatamente para que pueda esperar la transferencia.
         emailService.sendAdminNewAppointmentEmail(saved); // SGL-036
+        whatsAppService.sendConfirmationWhatsApp(saved);  // SGL-034 — fallo no bloquea el flujo
 
         return mapToDetail(saved);
     }

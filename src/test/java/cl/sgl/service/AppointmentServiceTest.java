@@ -53,7 +53,9 @@ class AppointmentServiceTest {
 
     @Mock
     private EmailService emailService;
-    // Nota: emailService es mock — por defecto sendConfirmationEmail() no hace nada (void).
+
+    @Mock
+    private WhatsAppService whatsAppService;
 
     @InjectMocks
     private AppointmentService appointmentService;
@@ -442,8 +444,10 @@ class AppointmentServiceTest {
         assertEquals("Divorcio Contencioso", result.getMateria());
         verify(appointmentRepository).saveAndFlush(any(Appointment.class));
         verify(appointmentRepository).save(any(Appointment.class));
-        // El email NO se envía al crear — solo al confirmar el pago
+        // El email de confirmación al cliente NO se envía al crear — solo al confirmar el pago
         verify(emailService, never()).sendConfirmationEmail(any(Appointment.class));
+        // WhatsApp de confirmación al cliente SÍ se envía al crear (SGL-034)
+        verify(whatsAppService).sendConfirmationWhatsApp(any(Appointment.class));
     }
 
     @Test

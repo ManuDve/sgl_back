@@ -96,6 +96,57 @@ class NotificationLogServiceTest {
             service.logFailure(1L, TipoEmail.NOTIF_ADMIN, "admin@test.cl", "timeout"));
     }
 
+    // ── logSuccess/logFailure con canal explícito (sobrecarga WHATSAPP) ────
+
+    @Test
+    @DisplayName("logSuccess con canal WHATSAPP guarda el canal correcto")
+    void testLogSuccess_ConCanalWhatsApp_GuardaCanalWhatsApp() {
+        service.logSuccess(3L, TipoEmail.CONFIRMACION_CLIENTE,
+            NotificationLogService.CANAL_WHATSAPP, "+56912345678");
+
+        ArgumentCaptor<NotificationLog> captor = ArgumentCaptor.forClass(NotificationLog.class);
+        verify(repository).save(captor.capture());
+        NotificationLog saved = captor.getValue();
+
+        assertEquals(NotificationLogService.CANAL_WHATSAPP, saved.getCanal());
+        assertEquals(NotificationLogService.ESTADO_OK,      saved.getEstado());
+        assertEquals("+56912345678",                        saved.getDestinatario());
+        assertNull(saved.getError());
+    }
+
+    @Test
+    @DisplayName("logFailure con canal WHATSAPP guarda el canal y el error")
+    void testLogFailure_ConCanalWhatsApp_GuardaCanalYError() {
+        service.logFailure(4L, TipoEmail.CONFIRMACION_CLIENTE,
+            NotificationLogService.CANAL_WHATSAPP, "+56912345678", "Twilio timeout");
+
+        ArgumentCaptor<NotificationLog> captor = ArgumentCaptor.forClass(NotificationLog.class);
+        verify(repository).save(captor.capture());
+        NotificationLog saved = captor.getValue();
+
+        assertEquals(NotificationLogService.CANAL_WHATSAPP, saved.getCanal());
+        assertEquals(NotificationLogService.ESTADO_FAIL,    saved.getEstado());
+        assertEquals("Twilio timeout",                      saved.getError());
+    }
+
+    @Test
+    @DisplayName("logSuccess con canal explícito no lanza excepción si el repositorio falla")
+    void testLogSuccess_ConCanalExplicito_ExcepcionEnRepositorio_NoLanzaExcepcion() {
+        when(repository.save(any())).thenThrow(new RuntimeException("DB error"));
+
+        assertDoesNotThrow(() -> service.logSuccess(1L, TipoEmail.CONFIRMACION_CLIENTE,
+            NotificationLogService.CANAL_WHATSAPP, "+56912345678"));
+    }
+
+    @Test
+    @DisplayName("logFailure con canal explícito no lanza excepción si el repositorio falla")
+    void testLogFailure_ConCanalExplicito_ExcepcionEnRepositorio_NoLanzaExcepcion() {
+        when(repository.save(any())).thenThrow(new RuntimeException("DB error"));
+
+        assertDoesNotThrow(() -> service.logFailure(1L, TipoEmail.CONFIRMACION_CLIENTE,
+            NotificationLogService.CANAL_WHATSAPP, "+56912345678", "timeout"));
+    }
+
     // ── findByAppointmentId ────────────────────────────────────────────────
 
     @Test

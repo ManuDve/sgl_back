@@ -23,19 +23,28 @@ import java.util.List;
 @Slf4j
 public class NotificationLogService {
 
-    static final String  CANAL_EMAIL  = "EMAIL";
-    static final String  ESTADO_OK    = "ENVIADO";
-    static final String  ESTADO_FAIL  = "FALLIDO";
+    static final String  CANAL_EMAIL    = "EMAIL";
+    static final String  CANAL_WHATSAPP = "WHATSAPP";
+    static final String  ESTADO_OK      = "ENVIADO";
+    static final String  ESTADO_FAIL    = "FALLIDO";
     private static final ZoneId ZONE_CL = ZoneId.of("America/Santiago");
 
     private final NotificationLogRepository repository;
 
     public void logSuccess(Long appointmentId, TipoEmail tipo, String destinatario) {
-        persist(appointmentId, tipo, destinatario, ESTADO_OK, null);
+        persist(appointmentId, tipo, CANAL_EMAIL, destinatario, ESTADO_OK, null);
+    }
+
+    public void logSuccess(Long appointmentId, TipoEmail tipo, String canal, String destinatario) {
+        persist(appointmentId, tipo, canal, destinatario, ESTADO_OK, null);
     }
 
     public void logFailure(Long appointmentId, TipoEmail tipo, String destinatario, String error) {
-        persist(appointmentId, tipo, destinatario, ESTADO_FAIL, error);
+        persist(appointmentId, tipo, CANAL_EMAIL, destinatario, ESTADO_FAIL, error);
+    }
+
+    public void logFailure(Long appointmentId, TipoEmail tipo, String canal, String destinatario, String error) {
+        persist(appointmentId, tipo, canal, destinatario, ESTADO_FAIL, error);
     }
 
     public List<NotificationLogDTO> findByAppointmentId(Long appointmentId) {
@@ -45,21 +54,21 @@ public class NotificationLogService {
                 .toList();
     }
 
-    private void persist(Long appointmentId, TipoEmail tipo, String destinatario,
+    private void persist(Long appointmentId, TipoEmail tipo, String canal, String destinatario,
                          String estado, String error) {
         try {
             repository.save(NotificationLog.builder()
                 .appointmentId(appointmentId)
                 .tipo(tipo)
-                .canal(CANAL_EMAIL)
+                .canal(canal)
                 .destinatario(destinatario)
                 .estado(estado)
                 .fechaEnvio(LocalDateTime.now(ZONE_CL))
                 .error(error)
                 .build());
         } catch (Exception e) {
-            log.error("No se pudo registrar notificación — tipo={} appt={} — {}",
-                tipo, appointmentId, e.getMessage());
+            log.error("No se pudo registrar notificación — tipo={} canal={} appt={} — {}",
+                tipo, canal, appointmentId, e.getMessage());
         }
     }
 
