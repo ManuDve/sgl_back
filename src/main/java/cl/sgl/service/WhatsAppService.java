@@ -32,9 +32,17 @@ public class WhatsAppService {
     private static final DateTimeFormatter TIME_FMT  = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter VAR_DATE_FMT = DateTimeFormatter.ofPattern("d/M");
 
+    static final String MENU_TEXT =
+        "Bienvenido a SGL, Plataforma de Reserva Jurídica.\n\n" +
+        "Responde con el número:\n" +
+        "1. Consultar mi cita\n" +
+        "2. Reagendar mi cita\n" +
+        "3. Cancelar mi cita";
+
     private final String fromNumber;
     private final String contentSid;
     private final String paymentContentSid;
+    private final String menuContentSid;
     private final boolean configured;
     private final NotificationLogService notificationLogService;
 
@@ -45,18 +53,21 @@ public class WhatsAppService {
             @Value("${twilio.whatsapp-from:}") String fromNumber,
             @Value("${twilio.content-sid:}") String contentSid,
             @Value("${twilio.payment-content-sid:}") String paymentContentSid,
+            @Value("${twilio.menu-content-sid:}") String menuContentSid,
             NotificationLogService notificationLogService) {
         this.fromNumber = fromNumber;
         this.contentSid = contentSid;
         this.paymentContentSid = paymentContentSid;
+        this.menuContentSid = menuContentSid;
         this.notificationLogService = notificationLogService;
         this.configured = !accountSid.isBlank() && !authToken.isBlank() && !fromNumber.isBlank();
         if (this.configured) {
             Twilio.init(accountSid, authToken);
-            log.info("WhatsAppService inicializado con numero {} | appt-template={} | pago-template={}",
+            log.info("WhatsAppService inicializado con numero {} | appt-template={} | pago-template={} | menu-template={}",
                 fromNumber,
                 contentSid.isBlank() ? "ninguno" : contentSid,
-                paymentContentSid.isBlank() ? "ninguno" : paymentContentSid);
+                paymentContentSid.isBlank() ? "ninguno" : paymentContentSid,
+                menuContentSid.isBlank() ? "ninguno" : menuContentSid);
         } else {
             log.warn("WhatsAppService no configurado — define TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN y TWILIO_WHATSAPP_FROM");
         }
@@ -64,20 +75,26 @@ public class WhatsAppService {
 
     /** Constructor para tests sin ningún template — no llama a Twilio.init(). */
     WhatsAppService(String fromNumber, boolean configured, NotificationLogService notificationLogService) {
-        this(fromNumber, configured, "", "", notificationLogService);
+        this(fromNumber, configured, "", "", "", notificationLogService);
     }
 
     /** Constructor para tests con template de agendamiento — no llama a Twilio.init(). */
     WhatsAppService(String fromNumber, boolean configured, String contentSid, NotificationLogService notificationLogService) {
-        this(fromNumber, configured, contentSid, "", notificationLogService);
+        this(fromNumber, configured, contentSid, "", "", notificationLogService);
     }
 
-    /** Constructor para tests con ambos templates — no llama a Twilio.init(). */
+    /** Constructor para tests con templates de agendamiento y pago — no llama a Twilio.init(). */
     WhatsAppService(String fromNumber, boolean configured, String contentSid, String paymentContentSid, NotificationLogService notificationLogService) {
+        this(fromNumber, configured, contentSid, paymentContentSid, "", notificationLogService);
+    }
+
+    /** Constructor para tests con todos los templates — no llama a Twilio.init(). */
+    WhatsAppService(String fromNumber, boolean configured, String contentSid, String paymentContentSid, String menuContentSid, NotificationLogService notificationLogService) {
         this.fromNumber = fromNumber;
         this.configured = configured;
         this.contentSid = contentSid;
         this.paymentContentSid = paymentContentSid;
+        this.menuContentSid = menuContentSid;
         this.notificationLogService = notificationLogService;
     }
 
@@ -139,6 +156,35 @@ public class WhatsAppService {
             log.error("No se pudo enviar WhatsApp para {} — {}", appointment.getIdExterno(), e.getMessage());
             notificationLogService.logFailure(appointment.getId(), TipoEmail.CONFIRMACION_CLIENTE,
                 NotificationLogService.CANAL_WHATSAPP, telefono, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Envía el menú de bienvenida al número que acaba de escribir.
+     * Se invoca desde el webhook de mensajes entrantes de Twilio.
+     * Si TWILIO_MENU_CONTENT_SID está definido, usa el Content Template (sin variables).
+     * Si no, usa texto libre (válido porque el cliente ya inició la sesión).
+     * No registra en notification_log porque no está asociado a ningún agendamiento.
+     *
+     * @param phone número del cliente en formato E.164 (sin prefijo "whatsapp:")
+     * @return true si el mensaje fue enviado, false en caso contrario
+     */
+    public boolean sendMenuMessage(String phone) {
+        if (!configured) {
+            log.debug("WhatsApp no configurado — se omite menú para {}", phone);
+            return false;
+        }
+        try {
+            if (menuContentSid != null && !menuContentSid.isBlank()) {
+                doSendWithTemplate(phone, menuContentSid, "{}");
+            } else {
+                doSendFreeform(phone, MENU_TEXT);
+            }
+            log.info("Menú WhatsApp enviado → {}", phone);
+            return true;
+        } catch (Exception e) {
+            log.error("No se pudo enviar menú WhatsApp a {} — {}", phone, e.getMessage());
             return false;
         }
     }

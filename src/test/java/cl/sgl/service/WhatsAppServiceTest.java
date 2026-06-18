@@ -266,6 +266,67 @@ class WhatsAppServiceTest {
         ));
     }
 
+    // ── sendMenuMessage ───────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("sendMenuMessage no configurado retorna false sin enviar")
+    void testSendMenuMessage_NoConfigurado_RetornaFalse() {
+        WhatsAppService service = new WhatsAppService("+14155238886", false, notificationLogService);
+
+        boolean result = service.sendMenuMessage("+56912345678");
+
+        assertFalse(result);
+        verifyNoInteractions(notificationLogService);
+    }
+
+    @Test
+    @DisplayName("sendMenuMessage configurado sin menu SID envía texto libre y retorna true")
+    void testSendMenuMessage_Configurado_SinMenuSid_UsaTextoLibre() {
+        WhatsAppService service = spy(new WhatsAppService("+14155238886", true, notificationLogService));
+        doNothing().when(service).doSendFreeform(anyString(), anyString());
+
+        boolean result = service.sendMenuMessage("+56912345678");
+
+        assertTrue(result);
+        verify(service).doSendFreeform(eq("+56912345678"), eq(WhatsAppService.MENU_TEXT));
+        verify(service, never()).doSendWithTemplate(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("sendMenuMessage configurado con menu SID usa doSendWithTemplate")
+    void testSendMenuMessage_Configurado_ConMenuSid_UsaTemplate() {
+        WhatsAppService service = spy(
+            new WhatsAppService("+14155238886", true, "", "", "HXmenu123", notificationLogService));
+        doNothing().when(service).doSendWithTemplate(anyString(), anyString(), anyString());
+
+        boolean result = service.sendMenuMessage("+56912345678");
+
+        assertTrue(result);
+        verify(service).doSendWithTemplate(eq("+56912345678"), eq("HXmenu123"), eq("{}"));
+        verify(service, never()).doSendFreeform(anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("sendMenuMessage falla en envío retorna false")
+    void testSendMenuMessage_FallaEnvio_RetornaFalse() {
+        WhatsAppService service = spy(new WhatsAppService("+14155238886", true, notificationLogService));
+        doThrow(new RuntimeException("timeout")).when(service).doSendFreeform(anyString(), anyString());
+
+        boolean result = service.sendMenuMessage("+56912345678");
+
+        assertFalse(result);
+        verifyNoInteractions(notificationLogService);
+    }
+
+    @Test
+    @DisplayName("sendMenuMessage texto libre contiene las 3 opciones del menú")
+    void testSendMenuMessage_TextoLibre_ContieneTresOpciones() {
+        assertTrue(WhatsAppService.MENU_TEXT.contains("1. Consultar mi cita"));
+        assertTrue(WhatsAppService.MENU_TEXT.contains("2. Reagendar mi cita"));
+        assertTrue(WhatsAppService.MENU_TEXT.contains("3. Cancelar mi cita"));
+        assertTrue(WhatsAppService.MENU_TEXT.contains("SGL"));
+    }
+
     // ── formatPhone ───────────────────────────────────────────────────────────
 
     @Test

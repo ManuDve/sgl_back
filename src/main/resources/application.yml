@@ -60,6 +60,7 @@ twilio:
   whatsapp-from:        ${TWILIO_WHATSAPP_FROM:}
   content-sid:          ${TWILIO_CONTENT_SID:}          # Content Template de agendamiento HX... (business-initiated)
   payment-content-sid:  ${TWILIO_PAYMENT_CONTENT_SID:}  # Content Template de confirmación de pago HX...
+  menu-content-sid:     ${TWILIO_MENU_CONTENT_SID:}     # Content Template de menú de bienvenida HX... (SGL-074)
 
 transbank:
   commerce-code:  ${TRANSBANK_COMMERCE_CODE:597055555532}
