@@ -22,4 +22,7 @@ public interface AppointmentOtpRepository extends JpaRepository<AppointmentOtp, 
     @Modifying
     @Query("UPDATE AppointmentOtp o SET o.usado = true WHERE o.appointmentId = :appointmentId AND o.usado = false")
     void invalidatePendingByAppointmentId(@Param("appointmentId") Long appointmentId);
+
+    /** Retorna el OTP más reciente del agendamiento para verificar el cooldown. */
+    Optional<AppointmentOtp> findFirstByAppointmentIdOrderByCreatedAtDesc(Long appointmentId);
 }

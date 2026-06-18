@@ -4,6 +4,7 @@ import cl.sgl.dto.OtpRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentOtp;
 import cl.sgl.entity.LegalService;
+import cl.sgl.exception.OtpCooldownException;
 import cl.sgl.repository.AppointmentOtpRepository;
 import cl.sgl.repository.AppointmentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -231,6 +232,67 @@ class OtpServiceTest {
 
         assertDoesNotThrow(() ->
             otpService.requestOtp("AG-TEST-0010", new OtpRequest("ana@example.com", null)));
+    }
+
+    // ── requestOtp — cooldown ─────────────────────────────────────────────
+
+    @Test
+    @DisplayName("requestOtp lanza OtpCooldownException si el último OTP fue hace menos de 60s")
+    void testRequestOtp_OtpReciente_LanzaOtpCooldownException() {
+        AppointmentOtp otpReciente = AppointmentOtp.builder()
+            .id(1L).appointmentId(10L).otp("111111")
+            .expiresAt(LocalDateTime.now().plusMinutes(14)).usado(false)
+            .createdAt(LocalDateTime.now().minusSeconds(30)).build();
+
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(appointment));
+        when(otpRepository.findFirstByAppointmentIdOrderByCreatedAtDesc(10L))
+            .thenReturn(Optional.of(otpReciente));
+
+        OtpCooldownException ex = assertThrows(OtpCooldownException.class, () ->
+            otpService.requestOtp("AG-TEST-0010", new OtpRequest("ana@example.com", null)));
+
+        assertTrue(ex.getRetryAfterSeconds() > 0);
+        assertTrue(ex.getRetryAfterSeconds() <= OtpService.OTP_COOLDOWN_SECONDS);
+        verify(emailService, never()).sendOtpEmail(any(), any());
+    }
+
+    @Test
+    @DisplayName("requestOtp incluye segundos restantes correctos en OtpCooldownException")
+    void testRequestOtp_CooldownExcepcionConTiempoRestante() {
+        AppointmentOtp otpReciente = AppointmentOtp.builder()
+            .id(1L).appointmentId(10L).otp("222222")
+            .expiresAt(LocalDateTime.now().plusMinutes(14)).usado(false)
+            .createdAt(LocalDateTime.now().minusSeconds(10)).build();
+
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(appointment));
+        when(otpRepository.findFirstByAppointmentIdOrderByCreatedAtDesc(10L))
+            .thenReturn(Optional.of(otpReciente));
+
+        OtpCooldownException ex = assertThrows(OtpCooldownException.class, () ->
+            otpService.requestOtp("AG-TEST-0010", new OtpRequest("ana@example.com", null)));
+
+        // Creado hace 10s → restan aprox. 50s (tolerancia de 2s por tiempo de ejecución)
+        assertTrue(ex.getRetryAfterSeconds() >= 48 && ex.getRetryAfterSeconds() <= 50,
+            "Esperado ~50s restantes, obtenido: " + ex.getRetryAfterSeconds());
+    }
+
+    @Test
+    @DisplayName("requestOtp procede si el último OTP fue hace más de 60 segundos")
+    void testRequestOtp_OtpAntiguo_ProcedeSinCooldown() {
+        AppointmentOtp otpAntiguo = AppointmentOtp.builder()
+            .id(1L).appointmentId(10L).otp("333333")
+            .expiresAt(LocalDateTime.now().minusMinutes(5)).usado(true)
+            .createdAt(LocalDateTime.now().minusSeconds(61)).build();
+
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(appointment));
+        when(otpRepository.findFirstByAppointmentIdOrderByCreatedAtDesc(10L))
+            .thenReturn(Optional.of(otpAntiguo));
+        when(otpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() ->
+            otpService.requestOtp("AG-TEST-0010", new OtpRequest("ana@example.com", null)));
+
+        verify(emailService).sendOtpEmail(eq(appointment), anyString());
     }
 
     // ── verifyOtp ─────────────────────────────────────────────────────────

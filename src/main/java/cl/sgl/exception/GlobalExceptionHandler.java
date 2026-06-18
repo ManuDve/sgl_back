@@ -173,4 +173,19 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
+
+    /**
+     * Maneja el cooldown de reenvío de OTP: el cliente debe esperar 60 segundos.
+     * Retorna 429 con retryAfterSeconds para que el frontend muestre el timer.
+     */
+    @ExceptionHandler(OtpCooldownException.class)
+    public ResponseEntity<ApiResponse<Map<String, Long>>> handleOtpCooldown(OtpCooldownException ex) {
+        ApiResponse<Map<String, Long>> response = ApiResponse.<Map<String, Long>>builder()
+            .status(429)
+            .message(ex.getMessage())
+            .data(Map.of("retryAfterSeconds", ex.getRetryAfterSeconds()))
+            .timestamp(LocalDateTime.now())
+            .build();
+        return new ResponseEntity<>(response, HttpStatus.TOO_MANY_REQUESTS);
+    }
 }

@@ -3,6 +3,7 @@ package cl.sgl.service;
 import cl.sgl.dto.OtpRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentOtp;
+import cl.sgl.exception.OtpCooldownException;
 import cl.sgl.repository.AppointmentOtpRepository;
 import cl.sgl.repository.AppointmentRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -31,7 +33,8 @@ import java.util.Optional;
 @Slf4j
 public class OtpService {
 
-    static final int OTP_EXPIRY_MINUTES = 15;
+    static final int OTP_EXPIRY_MINUTES  = 15;
+    static final int OTP_COOLDOWN_SECONDS = 60;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -111,6 +114,17 @@ public class OtpService {
             log.warn("OTP solicitado con datos que no coinciden para: {}", idExterno);
             return;
         }
+
+        // Cooldown: rechaza si el último OTP se generó hace menos de 60 segundos
+        otpRepository.findFirstByAppointmentIdOrderByCreatedAtDesc(appointment.getId())
+            .ifPresent(ultimo -> {
+                long segundos = Duration.between(ultimo.getCreatedAt(), LocalDateTime.now()).getSeconds();
+                if (segundos < OTP_COOLDOWN_SECONDS) {
+                    long restantes = OTP_COOLDOWN_SECONDS - segundos;
+                    log.warn("Cooldown activo para {} — faltan {} segundos", idExterno, restantes);
+                    throw new OtpCooldownException(restantes);
+                }
+            });
 
         String code = generateOtp(appointment.getId());
         try {
