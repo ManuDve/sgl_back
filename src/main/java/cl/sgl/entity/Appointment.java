@@ -66,6 +66,10 @@ public class Appointment {
     @Builder.Default
     private Boolean aceptaTerminos = false;
 
+    @Column(name = "reagendado", nullable = false, columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE")
+    @Builder.Default
+    private Boolean reagendado = false;
+
     @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
 

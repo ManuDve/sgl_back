@@ -29,5 +29,6 @@ public class AppointmentSummaryDTO {
     private LocalTime hora;
     private BigDecimal monto;
     private String estado;
+    private boolean reagendado;
     private String descripcion;
 }

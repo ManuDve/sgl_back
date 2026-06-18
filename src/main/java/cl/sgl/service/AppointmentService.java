@@ -247,6 +247,7 @@ public class AppointmentService {
             .hora(appointment.getHora())
             .monto(appointment.getMonto())
             .estado(appointment.getEstado().name())
+            .reagendado(Boolean.TRUE.equals(appointment.getReagendado()))
             .codigoTransaccion(appointment.getCodigoTransaccion())
             .montoConfirmado(appointment.getMontoConfirmado())
             .fechaPago(appointment.getFechaPago())
@@ -453,8 +454,7 @@ public class AppointmentService {
      *  - No se puede reagendar una cita CANCELLED.
      *  - La cita actual debe ser al menos 24h en el futuro (America/Santiago).
      *  - El nuevo slot no puede estar ocupado por otra cita PENDING o CONFIRMED.
-     *  - Si la cita estaba CONFIRMED, vuelve a PENDING (requiere re-confirmación de pago).
-     *  - Si estaba PENDING o RESCHEDULED, pasa a RESCHEDULED.
+     *  - El estado (PENDING/CONFIRMED) se preserva intacto; solo se marca reagendado=true.
      *
      * @param idExterno identificador externo de la cita
      * @param request   nueva fecha y hora
@@ -499,18 +499,15 @@ public class AppointmentService {
 
         LocalDate fechaAnterior = appointment.getFecha();
         LocalTime horaAnterior  = appointment.getHora();
-        AppointmentStatus estadoAnterior = appointment.getEstado();
 
         appointment.setFecha(request.getFecha());
         appointment.setHora(request.getHora());
-        appointment.setEstado(AppointmentStatus.CONFIRMED.equals(estadoAnterior)
-            ? AppointmentStatus.PENDING
-            : AppointmentStatus.RESCHEDULED);
+        appointment.setReagendado(true);
 
         Appointment saved = appointmentRepository.save(appointment);
-        log.info("Cita reagendada — idExterno={} | {} {} → {} {} | {} → {}",
+        log.info("Cita reagendada — idExterno={} | {} {} → {} {} | estado={}",
             idExterno, fechaAnterior, horaAnterior,
-            saved.getFecha(), saved.getHora(), estadoAnterior, saved.getEstado());
+            saved.getFecha(), saved.getHora(), saved.getEstado());
 
         return mapToDetail(saved);
     }
@@ -520,8 +517,7 @@ public class AppointmentService {
      * Políticas aplicadas:
      *  - No se puede reagendar una cita CANCELLED.
      *  - El nuevo slot no puede estar ocupado por otra cita PENDING o CONFIRMED.
-     *  - Si la cita estaba CONFIRMED, vuelve a PENDING (requiere re-confirmación de pago).
-     *  - Si estaba PENDING o RESCHEDULED, pasa a RESCHEDULED.
+     *  - El estado (PENDING/CONFIRMED) se preserva intacto; solo se marca reagendado=true.
      *
      * @param id      ID interno del agendamiento
      * @param request nueva fecha y hora
@@ -556,18 +552,15 @@ public class AppointmentService {
 
         LocalDate fechaAnterior = appointment.getFecha();
         LocalTime horaAnterior  = appointment.getHora();
-        AppointmentStatus estadoAnterior = appointment.getEstado();
 
         appointment.setFecha(request.getFecha());
         appointment.setHora(request.getHora());
-        appointment.setEstado(AppointmentStatus.CONFIRMED.equals(estadoAnterior)
-            ? AppointmentStatus.PENDING
-            : AppointmentStatus.RESCHEDULED);
+        appointment.setReagendado(true);
 
         Appointment saved = appointmentRepository.save(appointment);
-        log.info("Admin-reagendamiento — id={} | {} {} → {} {} | {} → {}",
+        log.info("Admin-reagendamiento — id={} | {} {} → {} {} | estado={}",
             id, fechaAnterior, horaAnterior,
-            saved.getFecha(), saved.getHora(), estadoAnterior, saved.getEstado());
+            saved.getFecha(), saved.getHora(), saved.getEstado());
 
         return mapToDetail(saved);
     }
@@ -727,6 +720,7 @@ public class AppointmentService {
             .hora(appointment.getHora())
             .monto(appointment.getMonto())
             .estado(appointment.getEstado().name())
+            .reagendado(Boolean.TRUE.equals(appointment.getReagendado()))
             .descripcion(appointment.getDescripcion())
             .build();
     }

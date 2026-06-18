@@ -268,7 +268,7 @@ public class AppointmentController {
     @PatchMapping("/{id}/estado")
     @Operation(
         summary = "Cambiar estado de agendamiento",
-        description = "Actualiza el estado de un agendamiento. Acepta español (PENDIENTE, CONFIRMADO, CANCELADO, REAGENDADO) o inglés (PENDING, CONFIRMED, CANCELLED, RESCHEDULED). Requiere autenticación de administrador."
+        description = "Actualiza el estado de un agendamiento. Acepta español (PENDIENTE, CONFIRMADO, CANCELADO) o inglés (PENDING, CONFIRMED, CANCELLED). Requiere autenticación de administrador."
     )
     @ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(

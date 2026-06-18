@@ -1194,8 +1194,8 @@ class AppointmentServiceTest {
     }
 
     @Test
-    @DisplayName("reschedule con cita CONFIRMED cambia estado a PENDING y actualiza fecha/hora")
-    void testReschedule_CitaConfirmada_CambiaEstadoAPending() {
+    @DisplayName("reschedule con cita CONFIRMED preserva estado CONFIRMED y marca reagendado")
+    void testReschedule_CitaConfirmada_PreservaEstadoYMarcaReagendado() {
         Appointment futura = buildFutureAppointment(AppointmentStatus.CONFIRMED);
         LocalDate nuevaFecha = LocalDate.now().plusDays(5);
         LocalTime nuevaHora  = LocalTime.of(9, 0);
@@ -1208,15 +1208,16 @@ class AppointmentServiceTest {
         AppointmentDetailDTO result = appointmentService.reschedule("AG-TEST-0010",
             new RescheduleRequest(nuevaFecha, nuevaHora));
 
-        assertEquals("PENDING", result.getEstado());
+        assertEquals("CONFIRMED", result.getEstado());
+        assertTrue(result.isReagendado());
         assertEquals(nuevaFecha, result.getFecha());
         assertEquals(nuevaHora, result.getHora());
         verify(appointmentRepository).save(any(Appointment.class));
     }
 
     @Test
-    @DisplayName("reschedule con cita PENDING cambia estado a RESCHEDULED y actualiza fecha/hora")
-    void testReschedule_CitaPendiente_CambiaEstadoARescheduled() {
+    @DisplayName("reschedule con cita PENDING preserva estado PENDING y marca reagendado")
+    void testReschedule_CitaPendiente_PreservaEstadoYMarcaReagendado() {
         Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
         LocalDate nuevaFecha = LocalDate.now().plusDays(5);
         LocalTime nuevaHora  = LocalTime.of(11, 0);
@@ -1229,7 +1230,8 @@ class AppointmentServiceTest {
         AppointmentDetailDTO result = appointmentService.reschedule("AG-TEST-0010",
             new RescheduleRequest(nuevaFecha, nuevaHora));
 
-        assertEquals("RESCHEDULED", result.getEstado());
+        assertEquals("PENDING", result.getEstado());
+        assertTrue(result.isReagendado());
         assertEquals(nuevaFecha, result.getFecha());
         assertEquals(nuevaHora, result.getHora());
     }
@@ -1295,8 +1297,8 @@ class AppointmentServiceTest {
     }
 
     @Test
-    @DisplayName("adminReschedule con cita CONFIRMED cambia estado a PENDING")
-    void testAdminReschedule_CitaConfirmada_CambiaEstadoAPending() {
+    @DisplayName("adminReschedule con cita CONFIRMED preserva estado CONFIRMED y marca reagendado")
+    void testAdminReschedule_CitaConfirmada_PreservaEstadoYMarcaReagendado() {
         Appointment futura = buildFutureAppointment(AppointmentStatus.CONFIRMED);
         LocalDate nuevaFecha = LocalDate.now().plusDays(5);
         LocalTime nuevaHora  = LocalTime.of(10, 0);
@@ -1309,14 +1311,15 @@ class AppointmentServiceTest {
         AppointmentDetailDTO result = appointmentService.adminReschedule(10L,
             new RescheduleRequest(nuevaFecha, nuevaHora));
 
-        assertEquals("PENDING", result.getEstado());
+        assertEquals("CONFIRMED", result.getEstado());
+        assertTrue(result.isReagendado());
         assertEquals(nuevaFecha, result.getFecha());
         assertEquals(nuevaHora, result.getHora());
     }
 
     @Test
-    @DisplayName("adminReschedule con cita PENDING cambia estado a RESCHEDULED")
-    void testAdminReschedule_CitaPendiente_CambiaEstadoARescheduled() {
+    @DisplayName("adminReschedule con cita PENDING preserva estado PENDING y marca reagendado")
+    void testAdminReschedule_CitaPendiente_PreservaEstadoYMarcaReagendado() {
         Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
         LocalDate nuevaFecha = LocalDate.now().plusDays(5);
         LocalTime nuevaHora  = LocalTime.of(11, 0);
@@ -1329,7 +1332,8 @@ class AppointmentServiceTest {
         AppointmentDetailDTO result = appointmentService.adminReschedule(10L,
             new RescheduleRequest(nuevaFecha, nuevaHora));
 
-        assertEquals("RESCHEDULED", result.getEstado());
+        assertEquals("PENDING", result.getEstado());
+        assertTrue(result.isReagendado());
     }
 
     @Test
@@ -1433,9 +1437,14 @@ class AppointmentServiceTest {
     }
 
     @Test
-    @DisplayName("cancel con cita RESCHEDULED cambia estado a CANCELLED")
+    @DisplayName("cancel con cita PENDING reagendada cambia estado a CANCELLED")
     void testCancel_CitaReagendada_CambiaEstadoACancelled() {
-        Appointment futura = buildFutureAppointment(AppointmentStatus.RESCHEDULED);
+        Appointment futura = Appointment.builder()
+            .id(10L).idExterno("AG-TEST-0010").nombreCliente("Carlos Fuentes")
+            .email("carlos@example.com").telefono("+56911111111").service(servicio)
+            .fecha(LocalDate.now().plusDays(3)).hora(LocalTime.of(14, 0))
+            .monto(new BigDecimal("500000")).estado(AppointmentStatus.PENDING).reagendado(true)
+            .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
         when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
         when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
 

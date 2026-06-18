@@ -42,6 +42,7 @@ public class AppointmentDetailDTO {
     private LocalTime hora;
     private BigDecimal monto;
     private String estado;
+    private boolean reagendado;
 
     // Confirmación de pago (null si no se ha confirmado)
     private String codigoTransaccion;

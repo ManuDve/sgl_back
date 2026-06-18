@@ -59,7 +59,7 @@ public class DataSeeder implements CommandLineRunner {
             build("AG-2026-0007", "Diego Muñoz",      "diego.munoz@gmail.com",      "+56978901234", familia,       hoy.plusDays(15), LocalTime.of( 9, 30), 75000,  AppointmentStatus.CONFIRMED),
             build("AG-2026-0008", "Valentina López",  "vale.lopez@outlook.com",     "+56989012345", tributario,    hoy.plusDays(18), LocalTime.of(10, 30), 150000, AppointmentStatus.CANCELLED),
             build("AG-2026-0009", "Andrés Torres",    "andres.torres@gmail.com",    "+56990123456", divorcioCivil, hoy.plusDays(22), LocalTime.of(11,  0), 50000,  AppointmentStatus.CANCELLED),
-            build("AG-2026-0010", "Camila Vásquez",   "camila.vasquez@gmail.com",   "+56901234567", laboral,       hoy.plusDays(28), LocalTime.of(14, 30), 65000,  AppointmentStatus.RESCHEDULED)
+            build("AG-2026-0010", "Camila Vásquez",   "camila.vasquez@gmail.com",   "+56901234567", laboral,       hoy.plusDays(28), LocalTime.of(14, 30), 65000,  AppointmentStatus.PENDING, true)
         );
 
         appointmentRepository.saveAll(appointments);
@@ -83,6 +83,13 @@ public class DataSeeder implements CommandLineRunner {
             String idExterno, String nombre, String email, String telefono,
             LegalService service, LocalDate fecha, LocalTime hora,
             int monto, AppointmentStatus estado) {
+        return build(idExterno, nombre, email, telefono, service, fecha, hora, monto, estado, false);
+    }
+
+    private Appointment build(
+            String idExterno, String nombre, String email, String telefono,
+            LegalService service, LocalDate fecha, LocalTime hora,
+            int monto, AppointmentStatus estado, boolean reagendado) {
 
         return Appointment.builder()
             .idExterno(idExterno)
@@ -94,6 +101,7 @@ public class DataSeeder implements CommandLineRunner {
             .hora(hora)
             .monto(new BigDecimal(monto))
             .estado(estado)
+            .reagendado(reagendado)
             .build();
     }
 }
