@@ -5,6 +5,7 @@ import cl.sgl.dto.AppointmentCalendarDTO;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.ConfirmPaymentRequest;
+import cl.sgl.dto.RescheduleRequest;
 import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.service.AppointmentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -289,6 +290,43 @@ public class AppointmentController {
         return ResponseEntity.ok(new ApiResponse<>(
             HttpStatus.OK.value(),
             "Estado actualizado exitosamente",
+            updated
+        ));
+    }
+
+    @PatchMapping("/{id}/reagendar")
+    @Operation(
+        summary = "Reagendar cita (admin)",
+        description = "Cambia la fecha y hora de una cita existente desde el panel administrativo. " +
+            "Sin restricción de 24h de anticipación. " +
+            "Valida disponibilidad del nuevo slot y que la cita no esté CANCELLED. " +
+            "Si estaba CONFIRMED, el estado vuelve a PENDING. " +
+            "Requiere autenticación de administrador. " +
+            "Historia: SGL-071 GES-ADMIN-REAG."
+    )
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "Cita reagendada exitosamente",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400",
+            description = "Campos inválidos"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Agendamiento no encontrado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+            description = "No autenticado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422",
+            description = "No se puede reagendar: cita cancelada o slot ocupado")
+    })
+    public ResponseEntity<ApiResponse<AppointmentDetailDTO>> adminReagendar(
+        @Parameter(description = "ID interno del agendamiento") @PathVariable Long id,
+        @Valid @RequestBody RescheduleRequest request) {
+
+        log.info("PATCH /api/admin/appointments/{}/reagendar - {} {}", id, request.getFecha(), request.getHora());
+
+        AppointmentDetailDTO updated = appointmentService.adminReschedule(id, request);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Cita reagendada exitosamente.",
             updated
         ));
     }

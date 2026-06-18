@@ -1253,6 +1253,113 @@ class AppointmentServiceTest {
             eq(nuevaFecha), eq(nuevaHora), anyList(), eq(10L));
     }
 
+    // ── SGL-071 GES-ADMIN-REAG ──────────────────────────────────────────
+
+    @Test
+    @DisplayName("adminReschedule lanza ResourceNotFoundException si la cita no existe")
+    void testAdminReschedule_CitaNoEncontrada_LanzaResourceNotFoundException() {
+        when(appointmentRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+            appointmentService.adminReschedule(999L,
+                new RescheduleRequest(LocalDate.now().plusDays(5), LocalTime.of(9, 0)))
+        );
+    }
+
+    @Test
+    @DisplayName("adminReschedule lanza RescheduleNotAllowedException si la cita está CANCELLED")
+    void testAdminReschedule_CitaCancelada_LanzaRescheduleNotAllowedException() {
+        Appointment cancelada = buildFutureAppointment(AppointmentStatus.CANCELLED);
+        when(appointmentRepository.findById(10L)).thenReturn(Optional.of(cancelada));
+
+        RescheduleNotAllowedException ex = assertThrows(RescheduleNotAllowedException.class, () ->
+            appointmentService.adminReschedule(10L,
+                new RescheduleRequest(LocalDate.now().plusDays(5), LocalTime.of(9, 0)))
+        );
+        assertTrue(ex.getMessage().contains("cancelada"));
+    }
+
+    @Test
+    @DisplayName("adminReschedule lanza RescheduleNotAllowedException si el nuevo slot está ocupado")
+    void testAdminReschedule_SlotOcupado_LanzaRescheduleNotAllowedException() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        when(appointmentRepository.findById(10L)).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(true);
+
+        RescheduleNotAllowedException ex = assertThrows(RescheduleNotAllowedException.class, () ->
+            appointmentService.adminReschedule(10L,
+                new RescheduleRequest(LocalDate.now().plusDays(5), LocalTime.of(9, 0)))
+        );
+        assertTrue(ex.getMessage().contains("reservado"));
+    }
+
+    @Test
+    @DisplayName("adminReschedule con cita CONFIRMED cambia estado a PENDING")
+    void testAdminReschedule_CitaConfirmada_CambiaEstadoAPending() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.CONFIRMED);
+        LocalDate nuevaFecha = LocalDate.now().plusDays(5);
+        LocalTime nuevaHora  = LocalTime.of(10, 0);
+
+        when(appointmentRepository.findById(10L)).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.adminReschedule(10L,
+            new RescheduleRequest(nuevaFecha, nuevaHora));
+
+        assertEquals("PENDING", result.getEstado());
+        assertEquals(nuevaFecha, result.getFecha());
+        assertEquals(nuevaHora, result.getHora());
+    }
+
+    @Test
+    @DisplayName("adminReschedule con cita PENDING cambia estado a RESCHEDULED")
+    void testAdminReschedule_CitaPendiente_CambiaEstadoARescheduled() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        LocalDate nuevaFecha = LocalDate.now().plusDays(5);
+        LocalTime nuevaHora  = LocalTime.of(11, 0);
+
+        when(appointmentRepository.findById(10L)).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.adminReschedule(10L,
+            new RescheduleRequest(nuevaFecha, nuevaHora));
+
+        assertEquals("RESCHEDULED", result.getEstado());
+    }
+
+    @Test
+    @DisplayName("adminReschedule permite reagendar sin restricción de 24h")
+    void testAdminReschedule_SinRestricccion24h_Permitido() {
+        // Cita en menos de 24h — el admin puede reagendarla igual
+        Appointment proxima = Appointment.builder()
+            .id(10L)
+            .idExterno("AG-TEST-0010")
+            .nombreCliente("Carlos Fuentes")
+            .email("carlos@example.com")
+            .telefono("+56911111111")
+            .service(servicio)
+            .fecha(LocalDate.now())
+            .hora(LocalTime.of(8, 0))
+            .monto(new java.math.BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .build();
+
+        when(appointmentRepository.findById(10L)).thenReturn(Optional.of(proxima));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertDoesNotThrow(() ->
+            appointmentService.adminReschedule(10L,
+                new RescheduleRequest(LocalDate.now().plusDays(1), LocalTime.of(10, 0)))
+        );
+    }
+
     // ── SGL-065 GES-CANCEL-WEB ───────────────────────────────────────────
 
     @Test

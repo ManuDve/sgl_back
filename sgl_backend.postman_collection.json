@@ -618,6 +618,47 @@
           }
         },
         {
+          "name": "PATCH Reagendar cita admin (GES-ADMIN-REAG)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"2026-07-20\",\n  \"hora\": \"11:00:00\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/appointments/{{appointmentId}}/reagendar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "appointments",
+                "{{appointmentId}}",
+                "reagendar"
+              ]
+            },
+            "description": "Reagenda una cita desde el panel admin. Sin restricción de 24h. Valida disponibilidad del slot y que la cita no esté CANCELLED. Si estaba CONFIRMED, vuelve a PENDING. Requiere JWT admin. SGL-071 GES-ADMIN-REAG."
+          },
+          "response": []
+        },
+        {
           "name": "PATCH Confirmar pago",
           "request": {
             "auth": {

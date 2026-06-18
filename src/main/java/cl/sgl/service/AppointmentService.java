@@ -516,6 +516,63 @@ public class AppointmentService {
     }
 
     /**
+     * Reagenda una cita desde el panel admin (sin restricción de 24h).
+     * Políticas aplicadas:
+     *  - No se puede reagendar una cita CANCELLED.
+     *  - El nuevo slot no puede estar ocupado por otra cita PENDING o CONFIRMED.
+     *  - Si la cita estaba CONFIRMED, vuelve a PENDING (requiere re-confirmación de pago).
+     *  - Si estaba PENDING o RESCHEDULED, pasa a RESCHEDULED.
+     *
+     * @param id      ID interno del agendamiento
+     * @param request nueva fecha y hora
+     * @return DTO actualizado
+     * @throws ResourceNotFoundException     si la cita no existe
+     * @throws RescheduleNotAllowedException si se viola alguna política (422)
+     *
+     * Historia: SGL-071 GES-ADMIN-REAG
+     */
+    @Transactional
+    public AppointmentDetailDTO adminReschedule(Long id, RescheduleRequest request) {
+        Appointment appointment = appointmentRepository.findById(id)
+            .orElseThrow(() -> {
+                log.warn("Admin-reagendamiento: cita no encontrada, id={}", id);
+                return new ResourceNotFoundException("Agendamiento con ID " + id + " no encontrado");
+            });
+
+        if (AppointmentStatus.CANCELLED.equals(appointment.getEstado())) {
+            throw new RescheduleNotAllowedException("No es posible reagendar una cita cancelada.");
+        }
+
+        boolean slotOcupado = appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(
+            request.getFecha(), request.getHora(),
+            List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED),
+            appointment.getId()
+        );
+        if (slotOcupado) {
+            throw new RescheduleNotAllowedException(
+                "El horario " + request.getHora() + " del " + request.getFecha()
+                + " ya está reservado por otro agendamiento.");
+        }
+
+        LocalDate fechaAnterior = appointment.getFecha();
+        LocalTime horaAnterior  = appointment.getHora();
+        AppointmentStatus estadoAnterior = appointment.getEstado();
+
+        appointment.setFecha(request.getFecha());
+        appointment.setHora(request.getHora());
+        appointment.setEstado(AppointmentStatus.CONFIRMED.equals(estadoAnterior)
+            ? AppointmentStatus.PENDING
+            : AppointmentStatus.RESCHEDULED);
+
+        Appointment saved = appointmentRepository.save(appointment);
+        log.info("Admin-reagendamiento — id={} | {} {} → {} {} | {} → {}",
+            id, fechaAnterior, horaAnterior,
+            saved.getFecha(), saved.getHora(), estadoAnterior, saved.getEstado());
+
+        return mapToDetail(saved);
+    }
+
+    /**
      * Cancela una cita existente, cambiando su estado a CANCELLED.
      * Políticas aplicadas:
      *  - No se puede cancelar una cita ya CANCELLED.
