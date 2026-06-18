@@ -350,22 +350,15 @@
               "raw": "{\n  \"email\": \"ana.martinez@example.com\",\n  \"telefono\": null\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/appointments/:idExterno/request-otp",
+              "raw": "{{baseUrl}}/api/appointments/{{idExterno}}/request-otp",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "appointments",
-                ":idExterno",
+                "{{idExterno}}",
                 "request-otp"
-              ],
-              "variable": [
-                {
-                  "key": "idExterno",
-                  "value": "AG-DOLF-0075",
-                  "description": "ID externo de la cita (formato AG-XXXX-NNNN)"
-                }
               ]
             },
             "description": "Solicita un OTP de verificación de identidad para gestionar una cita. Proporcionar email O teléfono que coincida con la cita. La respuesta es siempre 200 para evitar enumeración. SGL-066 GES-OTP."
@@ -387,25 +380,53 @@
               "raw": "{\n  \"otp\": \"123456\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/appointments/:idExterno/verify-otp",
+              "raw": "{{baseUrl}}/api/appointments/{{idExterno}}/verify-otp",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "appointments",
-                ":idExterno",
+                "{{idExterno}}",
                 "verify-otp"
-              ],
-              "variable": [
-                {
-                  "key": "idExterno",
-                  "value": "AG-DOLF-0075",
-                  "description": "ID externo de la cita (formato AG-XXXX-NNNN)"
-                }
               ]
             },
             "description": "Verifica el OTP enviado al cliente. Si es válido retorna un JWT de gestión (10 min) para reagendar/cancelar la cita. Si es inválido retorna 401. SGL-067 GES-VERIFY."
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH Reagendar cita (GES-REAG-WEB)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gestionToken}}",
+                "description": "Token de gestión obtenido en POST verify-otp (válido 10 min)"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"2026-07-15\",\n  \"hora\": \"11:00:00\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{idExterno}}/reagendar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "{{idExterno}}",
+                "reagendar"
+              ]
+            },
+            "description": "Reagenda la cita indicada por {{idExterno}}. Requiere el token de gestión emitido por verify-otp en el header Authorization. Políticas: mínimo 24h de anticipación, slot disponible, cita no CANCELLED. Si estaba CONFIRMED, el estado vuelve a PENDING. SGL-064 GES-REAG-WEB."
           },
           "response": []
         },
@@ -897,6 +918,16 @@
     {
       "key": "adminPassword",
       "value": "admin123"
+    },
+    {
+      "key": "idExterno",
+      "value": "AG-XXXX-0001",
+      "description": "ID externo de la cita (formato AG-XXXX-NNNN) — reemplazar antes de ejecutar"
+    },
+    {
+      "key": "gestionToken",
+      "value": "",
+      "description": "Token de gestión retornado por POST verify-otp — copiar aquí antes de reagendar"
     }
   ]
 }

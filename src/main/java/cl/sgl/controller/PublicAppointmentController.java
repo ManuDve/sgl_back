@@ -5,6 +5,7 @@ import cl.sgl.dto.ApiResponse;
 import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.CreateAppointmentRequest;
 import cl.sgl.dto.OtpRequest;
+import cl.sgl.dto.RescheduleRequest;
 import cl.sgl.dto.VerifyOtpRequest;
 import cl.sgl.dto.VerifyOtpResponse;
 import cl.sgl.exception.UnauthorizedException;
@@ -22,9 +23,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -182,6 +185,51 @@ public class PublicAppointmentController {
             HttpStatus.OK.value(),
             "Identidad verificada. Token válido por 10 minutos.",
             new VerifyOtpResponse(token, idExterno, 600)
+        ));
+    }
+
+    @PatchMapping("/{idExterno}/reagendar")
+    @Operation(
+        summary = "Reagendar cita",
+        description = """
+            Cambia la fecha y hora de una cita existente.
+            Requiere el token de gestión emitido por POST /verify-otp (Bearer en Authorization header).
+            Políticas: no se puede reagendar con menos de 24h de anticipación, ni si el slot está ocupado,
+            ni si la cita está CANCELLED. Si estaba CONFIRMED, el estado vuelve a PENDING.
+            Historia: SGL-064 GES-REAG-WEB
+            """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "Cita reagendada exitosamente"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+            description = "Token de gestión ausente, inválido o no corresponde a esta cita"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Cita no encontrada"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422",
+            description = "No se puede reagendar: cancelada, menos de 24h, o slot ocupado")
+    })
+    public ResponseEntity<ApiResponse<AppointmentDetailDTO>> reagendar(
+            @Parameter(description = "ID externo en formato AG-XXXX-NNNN", example = "AG-ABCD-0001")
+            @PathVariable String idExterno,
+            @RequestHeader("Authorization") String authorizationHeader,
+            @Valid @RequestBody RescheduleRequest request) {
+
+        log.info("PATCH /api/appointments/{}/reagendar", idExterno);
+
+        String token = authorizationHeader != null && authorizationHeader.startsWith("Bearer ")
+            ? authorizationHeader.substring(7)
+            : null;
+
+        if (token == null || !jwtUtil.isManagementTokenValid(token, idExterno)) {
+            throw new UnauthorizedException("Token de gestión inválido o no autorizado para esta cita.");
+        }
+
+        AppointmentDetailDTO resultado = appointmentService.reschedule(idExterno, request);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Cita reagendada exitosamente.",
+            resultado
         ));
     }
 

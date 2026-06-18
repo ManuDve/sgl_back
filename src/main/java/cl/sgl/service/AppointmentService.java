@@ -6,11 +6,13 @@ import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.ConfirmPaymentRequest;
 import cl.sgl.dto.CreateAppointmentRequest;
+import cl.sgl.dto.RescheduleRequest;
 import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
 import cl.sgl.exception.AppointmentConflictException;
+import cl.sgl.exception.RescheduleNotAllowedException;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
 import cl.sgl.repository.AppointmentSpecification;
@@ -28,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -440,6 +443,74 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Estado agendamiento ID={} cambiado: {} → {}", id, estadoAnterior, nuevoEstado);
+        return mapToDetail(saved);
+    }
+
+    /**
+     * Reagenda una cita cambiando su fecha y hora.
+     * Políticas aplicadas:
+     *  - No se puede reagendar una cita CANCELLED.
+     *  - La cita actual debe ser al menos 24h en el futuro (America/Santiago).
+     *  - El nuevo slot no puede estar ocupado por otra cita PENDING o CONFIRMED.
+     *  - Si la cita estaba CONFIRMED, vuelve a PENDING (requiere re-confirmación de pago).
+     *  - Si estaba PENDING o RESCHEDULED, pasa a RESCHEDULED.
+     *
+     * @param idExterno identificador externo de la cita
+     * @param request   nueva fecha y hora
+     * @return DTO actualizado
+     * @throws ResourceNotFoundException     si la cita no existe
+     * @throws RescheduleNotAllowedException si se viola alguna política (422)
+     *
+     * Historia: SGL-064 GES-REAG-WEB
+     */
+    @Transactional
+    public AppointmentDetailDTO reschedule(String idExterno, RescheduleRequest request) {
+        Appointment appointment = appointmentRepository.findByIdExterno(idExterno)
+            .orElseThrow(() -> {
+                log.warn("Reagendamiento: cita no encontrada, idExterno={}", idExterno);
+                return new ResourceNotFoundException("Agendamiento '" + idExterno + "' no encontrado");
+            });
+
+        if (AppointmentStatus.CANCELLED.equals(appointment.getEstado())) {
+            throw new RescheduleNotAllowedException("No es posible reagendar una cita cancelada.");
+        }
+
+        // Política 24h: la cita actual debe ser al menos 24h en el futuro (zona Chile)
+        ZoneId zonaCL = ZoneId.of("America/Santiago");
+        LocalDateTime citaActual = LocalDateTime.of(appointment.getFecha(), appointment.getHora());
+        LocalDateTime limite24h  = LocalDateTime.now(zonaCL).plusHours(24);
+        if (!citaActual.isAfter(limite24h)) {
+            throw new RescheduleNotAllowedException(
+                "Solo se puede reagendar con al menos 24 horas de anticipación.");
+        }
+
+        // Verificar disponibilidad del nuevo slot (excluye la propia cita para evitar falso conflicto)
+        boolean slotOcupado = appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(
+            request.getFecha(), request.getHora(),
+            List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED),
+            appointment.getId()
+        );
+        if (slotOcupado) {
+            throw new RescheduleNotAllowedException(
+                "El horario " + request.getHora() + " del " + request.getFecha()
+                + " ya está reservado por otro agendamiento.");
+        }
+
+        LocalDate fechaAnterior = appointment.getFecha();
+        LocalTime horaAnterior  = appointment.getHora();
+        AppointmentStatus estadoAnterior = appointment.getEstado();
+
+        appointment.setFecha(request.getFecha());
+        appointment.setHora(request.getHora());
+        appointment.setEstado(AppointmentStatus.CONFIRMED.equals(estadoAnterior)
+            ? AppointmentStatus.PENDING
+            : AppointmentStatus.RESCHEDULED);
+
+        Appointment saved = appointmentRepository.save(appointment);
+        log.info("Cita reagendada — idExterno={} | {} {} → {} {} | {} → {}",
+            idExterno, fechaAnterior, horaAnterior,
+            saved.getFecha(), saved.getHora(), estadoAnterior, saved.getEstado());
+
         return mapToDetail(saved);
     }
 

@@ -5,11 +5,13 @@ import cl.sgl.dto.AppointmentDetailDTO;
 import cl.sgl.dto.AppointmentSummaryDTO;
 import cl.sgl.dto.ConfirmPaymentRequest;
 import cl.sgl.dto.CreateAppointmentRequest;
+import cl.sgl.dto.RescheduleRequest;
 import cl.sgl.dto.UpdateAppointmentStatusRequest;
 import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
 import cl.sgl.exception.AppointmentConflictException;
+import cl.sgl.exception.RescheduleNotAllowedException;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
 import cl.sgl.repository.LegalServiceRepository;
@@ -1102,5 +1104,151 @@ class AppointmentServiceTest {
         assertEquals(2, lines.length);
         verify(appointmentRepository, times(1))
             .findAll(any(Specification.class), any(Sort.class));
+    }
+
+    // ── SGL-064 GES-REAG-WEB ─────────────────────────────────────────────
+
+    private Appointment buildFutureAppointment(AppointmentStatus estado) {
+        return Appointment.builder()
+            .id(10L)
+            .idExterno("AG-TEST-0010")
+            .nombreCliente("Carlos Fuentes")
+            .email("carlos@example.com")
+            .telefono("+56911111111")
+            .service(servicio)
+            .fecha(LocalDate.now().plusDays(3))
+            .hora(LocalTime.of(14, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(estado)
+            .createdAt(LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
+            .build();
+    }
+
+    @Test
+    @DisplayName("reschedule lanza ResourceNotFoundException si la cita no existe")
+    void testReschedule_CitaNoEncontrada_LanzaResourceNotFoundException() {
+        when(appointmentRepository.findByIdExterno("AG-XXXX-9999")).thenReturn(Optional.empty());
+
+        RescheduleRequest req = new RescheduleRequest(LocalDate.now().plusDays(5), LocalTime.of(9, 0));
+
+        assertThrows(ResourceNotFoundException.class, () ->
+            appointmentService.reschedule("AG-XXXX-9999", req)
+        );
+    }
+
+    @Test
+    @DisplayName("reschedule lanza RescheduleNotAllowedException si la cita está CANCELLED")
+    void testReschedule_CitaCancelada_LanzaRescheduleNotAllowedException() {
+        Appointment cancelada = buildFutureAppointment(AppointmentStatus.CANCELLED);
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(cancelada));
+
+        RescheduleRequest req = new RescheduleRequest(LocalDate.now().plusDays(5), LocalTime.of(9, 0));
+
+        RescheduleNotAllowedException ex = assertThrows(RescheduleNotAllowedException.class, () ->
+            appointmentService.reschedule("AG-TEST-0010", req)
+        );
+        assertTrue(ex.getMessage().contains("cancelada"));
+    }
+
+    @Test
+    @DisplayName("reschedule lanza RescheduleNotAllowedException si la cita es en menos de 24h")
+    void testReschedule_MenosDe24Horas_LanzaRescheduleNotAllowedException() {
+        Appointment proxima = Appointment.builder()
+            .id(10L)
+            .idExterno("AG-TEST-0010")
+            .nombreCliente("Carlos Fuentes")
+            .email("carlos@example.com")
+            .telefono("+56911111111")
+            .service(servicio)
+            .fecha(LocalDate.now())
+            .hora(LocalTime.of(8, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .build();
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(proxima));
+
+        RescheduleRequest req = new RescheduleRequest(LocalDate.now().plusDays(5), LocalTime.of(9, 0));
+
+        RescheduleNotAllowedException ex = assertThrows(RescheduleNotAllowedException.class, () ->
+            appointmentService.reschedule("AG-TEST-0010", req)
+        );
+        assertTrue(ex.getMessage().contains("24 horas"));
+    }
+
+    @Test
+    @DisplayName("reschedule lanza RescheduleNotAllowedException si el nuevo slot está ocupado")
+    void testReschedule_SlotOcupado_LanzaRescheduleNotAllowedException() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(true);
+
+        RescheduleRequest req = new RescheduleRequest(LocalDate.now().plusDays(5), LocalTime.of(9, 0));
+
+        RescheduleNotAllowedException ex = assertThrows(RescheduleNotAllowedException.class, () ->
+            appointmentService.reschedule("AG-TEST-0010", req)
+        );
+        assertTrue(ex.getMessage().contains("reservado"));
+    }
+
+    @Test
+    @DisplayName("reschedule con cita CONFIRMED cambia estado a PENDING y actualiza fecha/hora")
+    void testReschedule_CitaConfirmada_CambiaEstadoAPending() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.CONFIRMED);
+        LocalDate nuevaFecha = LocalDate.now().plusDays(5);
+        LocalTime nuevaHora  = LocalTime.of(9, 0);
+
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.reschedule("AG-TEST-0010",
+            new RescheduleRequest(nuevaFecha, nuevaHora));
+
+        assertEquals("PENDING", result.getEstado());
+        assertEquals(nuevaFecha, result.getFecha());
+        assertEquals(nuevaHora, result.getHora());
+        verify(appointmentRepository).save(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("reschedule con cita PENDING cambia estado a RESCHEDULED y actualiza fecha/hora")
+    void testReschedule_CitaPendiente_CambiaEstadoARescheduled() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        LocalDate nuevaFecha = LocalDate.now().plusDays(5);
+        LocalTime nuevaHora  = LocalTime.of(11, 0);
+
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.reschedule("AG-TEST-0010",
+            new RescheduleRequest(nuevaFecha, nuevaHora));
+
+        assertEquals("RESCHEDULED", result.getEstado());
+        assertEquals(nuevaFecha, result.getFecha());
+        assertEquals(nuevaHora, result.getHora());
+    }
+
+    @Test
+    @DisplayName("reschedule excluye la propia cita al verificar disponibilidad del slot")
+    void testReschedule_ExcluyeCitaPropiaAlVerificarSlot() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        LocalDate nuevaFecha = LocalDate.now().plusDays(5);
+        LocalTime nuevaHora  = LocalTime.of(14, 0);
+
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(
+                eq(nuevaFecha), eq(nuevaHora), anyList(), eq(10L)))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        appointmentService.reschedule("AG-TEST-0010", new RescheduleRequest(nuevaFecha, nuevaHora));
+
+        verify(appointmentRepository).existsByFechaAndHoraAndEstadoInAndIdNot(
+            eq(nuevaFecha), eq(nuevaHora), anyList(), eq(10L));
     }
 }

@@ -118,6 +118,17 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(RescheduleNotAllowedException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ResponseEntity<ApiResponse<Void>> handleRescheduleNotAllowedException(
+            RescheduleNotAllowedException ex, WebRequest request) {
+
+        return new ResponseEntity<>(
+            ApiResponse.error(HttpStatus.UNPROCESSABLE_ENTITY.value(), ex.getMessage()),
+            HttpStatus.UNPROCESSABLE_ENTITY
+        );
+    }
+
     /**
      * Maneja excepciones de acceso denegado
      */

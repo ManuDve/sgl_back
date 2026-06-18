@@ -39,6 +39,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
      */
     boolean existsByFechaAndHoraAndEstadoIn(LocalDate fecha, LocalTime hora, Collection<AppointmentStatus> estados);
 
+    /**
+     * Igual que el anterior pero excluyendo un ID específico.
+     * Usado al reagendar para verificar disponibilidad del nuevo slot sin conflictar con la propia cita.
+     * Historia: SGL-064 GES-REAG-WEB
+     */
+    boolean existsByFechaAndHoraAndEstadoInAndIdNot(LocalDate fecha, LocalTime hora,
+                                                     Collection<AppointmentStatus> estados, Long excludeId);
+
     java.util.Optional<Appointment> findByIdExterno(String idExterno);
 
     /**
