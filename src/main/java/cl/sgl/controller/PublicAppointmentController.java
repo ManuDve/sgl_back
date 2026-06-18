@@ -233,6 +233,50 @@ public class PublicAppointmentController {
         ));
     }
 
+    @PatchMapping("/{idExterno}/cancelar")
+    @Operation(
+        summary = "Cancelar cita",
+        description = """
+            Cancela una cita existente, cambiando su estado a CANCELLED.
+            Requiere el token de gestión emitido por POST /verify-otp (Bearer en Authorization header).
+            Políticas: no se puede cancelar con menos de 24h de anticipación, ni si la cita ya está CANCELLED.
+            No requiere body.
+            Historia: SGL-065 GES-CANCEL-WEB
+            """
+    )
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "Cita cancelada exitosamente"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401",
+            description = "Token de gestión ausente, inválido o no corresponde a esta cita"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404",
+            description = "Cita no encontrada"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422",
+            description = "No se puede cancelar: ya cancelada o menos de 24h de anticipación")
+    })
+    public ResponseEntity<ApiResponse<AppointmentDetailDTO>> cancelar(
+            @Parameter(description = "ID externo en formato AG-XXXX-NNNN", example = "AG-ABCD-0001")
+            @PathVariable String idExterno,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        log.info("PATCH /api/appointments/{}/cancelar", idExterno);
+
+        String token = authorizationHeader != null && authorizationHeader.startsWith("Bearer ")
+            ? authorizationHeader.substring(7)
+            : null;
+
+        if (token == null || !jwtUtil.isManagementTokenValid(token, idExterno)) {
+            throw new UnauthorizedException("Token de gestión inválido o no autorizado para esta cita.");
+        }
+
+        AppointmentDetailDTO resultado = appointmentService.cancel(idExterno);
+        return ResponseEntity.ok(new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Cita cancelada exitosamente.",
+            resultado
+        ));
+    }
+
     @GetMapping("/ping")
     @Operation(
         summary = "Health check del módulo de agendamiento",

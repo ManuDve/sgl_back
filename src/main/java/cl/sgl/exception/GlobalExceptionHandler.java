@@ -129,6 +129,17 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(CancellationNotAllowedException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ResponseEntity<ApiResponse<Void>> handleCancellationNotAllowedException(
+            CancellationNotAllowedException ex, WebRequest request) {
+
+        return new ResponseEntity<>(
+            ApiResponse.error(HttpStatus.UNPROCESSABLE_ENTITY.value(), ex.getMessage()),
+            HttpStatus.UNPROCESSABLE_ENTITY
+        );
+    }
+
     /**
      * Maneja excepciones de acceso denegado
      */

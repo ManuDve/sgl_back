@@ -11,6 +11,7 @@ import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
 import cl.sgl.exception.AppointmentConflictException;
+import cl.sgl.exception.CancellationNotAllowedException;
 import cl.sgl.exception.RescheduleNotAllowedException;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
@@ -1250,5 +1251,89 @@ class AppointmentServiceTest {
 
         verify(appointmentRepository).existsByFechaAndHoraAndEstadoInAndIdNot(
             eq(nuevaFecha), eq(nuevaHora), anyList(), eq(10L));
+    }
+
+    // ── SGL-065 GES-CANCEL-WEB ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("cancel lanza ResourceNotFoundException si la cita no existe")
+    void testCancel_CitaNoEncontrada_LanzaResourceNotFoundException() {
+        when(appointmentRepository.findByIdExterno("AG-XXXX-9999")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+            appointmentService.cancel("AG-XXXX-9999")
+        );
+    }
+
+    @Test
+    @DisplayName("cancel lanza CancellationNotAllowedException si la cita ya está CANCELLED")
+    void testCancel_CitaYaCancelada_LanzaCancellationNotAllowedException() {
+        Appointment cancelada = buildFutureAppointment(AppointmentStatus.CANCELLED);
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(cancelada));
+
+        CancellationNotAllowedException ex = assertThrows(CancellationNotAllowedException.class, () ->
+            appointmentService.cancel("AG-TEST-0010")
+        );
+        assertTrue(ex.getMessage().contains("cancelada"));
+    }
+
+    @Test
+    @DisplayName("cancel lanza CancellationNotAllowedException si la cita es en menos de 24h")
+    void testCancel_MenosDe24Horas_LanzaCancellationNotAllowedException() {
+        Appointment proxima = Appointment.builder()
+            .id(10L)
+            .idExterno("AG-TEST-0010")
+            .nombreCliente("Carlos Fuentes")
+            .email("carlos@example.com")
+            .telefono("+56911111111")
+            .service(servicio)
+            .fecha(LocalDate.now())
+            .hora(LocalTime.of(8, 0))
+            .monto(new BigDecimal("500000"))
+            .estado(AppointmentStatus.PENDING)
+            .build();
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(proxima));
+
+        CancellationNotAllowedException ex = assertThrows(CancellationNotAllowedException.class, () ->
+            appointmentService.cancel("AG-TEST-0010")
+        );
+        assertTrue(ex.getMessage().contains("24 horas"));
+    }
+
+    @Test
+    @DisplayName("cancel con cita PENDING cambia estado a CANCELLED")
+    void testCancel_CitaPendiente_CambiaEstadoACancelled() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.cancel("AG-TEST-0010");
+
+        assertEquals("CANCELLED", result.getEstado());
+        verify(appointmentRepository).save(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("cancel con cita CONFIRMED cambia estado a CANCELLED")
+    void testCancel_CitaConfirmada_CambiaEstadoACancelled() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.CONFIRMED);
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.cancel("AG-TEST-0010");
+
+        assertEquals("CANCELLED", result.getEstado());
+    }
+
+    @Test
+    @DisplayName("cancel con cita RESCHEDULED cambia estado a CANCELLED")
+    void testCancel_CitaReagendada_CambiaEstadoACancelled() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.RESCHEDULED);
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AppointmentDetailDTO result = appointmentService.cancel("AG-TEST-0010");
+
+        assertEquals("CANCELLED", result.getEstado());
     }
 }

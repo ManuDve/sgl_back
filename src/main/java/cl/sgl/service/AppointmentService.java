@@ -12,6 +12,7 @@ import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.entity.LegalService;
 import cl.sgl.exception.AppointmentConflictException;
+import cl.sgl.exception.CancellationNotAllowedException;
 import cl.sgl.exception.RescheduleNotAllowedException;
 import cl.sgl.exception.ResourceNotFoundException;
 import cl.sgl.repository.AppointmentRepository;
@@ -510,6 +511,50 @@ public class AppointmentService {
         log.info("Cita reagendada — idExterno={} | {} {} → {} {} | {} → {}",
             idExterno, fechaAnterior, horaAnterior,
             saved.getFecha(), saved.getHora(), estadoAnterior, saved.getEstado());
+
+        return mapToDetail(saved);
+    }
+
+    /**
+     * Cancela una cita existente, cambiando su estado a CANCELLED.
+     * Políticas aplicadas:
+     *  - No se puede cancelar una cita ya CANCELLED.
+     *  - La cita actual debe ser al menos 24h en el futuro (America/Santiago).
+     *
+     * @param idExterno identificador externo de la cita
+     * @return DTO actualizado con estado CANCELLED
+     * @throws ResourceNotFoundException      si la cita no existe
+     * @throws CancellationNotAllowedException si se viola alguna política (422)
+     *
+     * Historia: SGL-065 GES-CANCEL-WEB
+     */
+    @Transactional
+    public AppointmentDetailDTO cancel(String idExterno) {
+        Appointment appointment = appointmentRepository.findByIdExterno(idExterno)
+            .orElseThrow(() -> {
+                log.warn("Cancelación: cita no encontrada, idExterno={}", idExterno);
+                return new ResourceNotFoundException("Agendamiento '" + idExterno + "' no encontrado");
+            });
+
+        if (AppointmentStatus.CANCELLED.equals(appointment.getEstado())) {
+            throw new CancellationNotAllowedException("La cita ya se encuentra cancelada.");
+        }
+
+        // Política 24h: la cita debe ser al menos 24h en el futuro (zona Chile)
+        ZoneId zonaCL = ZoneId.of("America/Santiago");
+        LocalDateTime citaActual = LocalDateTime.of(appointment.getFecha(), appointment.getHora());
+        LocalDateTime limite24h  = LocalDateTime.now(zonaCL).plusHours(24);
+        if (!citaActual.isAfter(limite24h)) {
+            throw new CancellationNotAllowedException(
+                "Solo se puede cancelar con al menos 24 horas de anticipación.");
+        }
+
+        AppointmentStatus estadoAnterior = appointment.getEstado();
+        appointment.setEstado(AppointmentStatus.CANCELLED);
+
+        Appointment saved = appointmentRepository.save(appointment);
+        log.info("Cita cancelada — idExterno={} | {} {} | {} → CANCELLED",
+            idExterno, saved.getFecha(), saved.getHora(), estadoAnterior);
 
         return mapToDetail(saved);
     }

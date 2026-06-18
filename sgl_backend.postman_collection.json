@@ -431,6 +431,33 @@
           "response": []
         },
         {
+          "name": "PATCH Cancelar cita (GES-CANCEL-WEB)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{gestionToken}}",
+                "description": "Token de gestión obtenido en POST verify-otp (válido 10 min)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments/{{idExterno}}/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "appointments",
+                "{{idExterno}}",
+                "cancelar"
+              ]
+            },
+            "description": "Cancela la cita indicada por {{idExterno}}. Requiere el token de gestión emitido por verify-otp en el header Authorization. Sin body. Políticas: mínimo 24h de anticipación, cita no CANCELLED. Retorna 200 o 422. SGL-065 GES-CANCEL-WEB."
+          },
+          "response": []
+        },
+        {
           "name": "GET Días hábiles disponibles",
           "request": {
             "method": "GET",
