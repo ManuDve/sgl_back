@@ -174,6 +174,55 @@ class EmailTemplateBuilderTest {
         assertTrue(html.contains("class=\"ftr\""),                  "debe incluir el footer");
     }
 
+    // ── buildCancellationEmail — SGL-073 GES-NOTIF ───────────────────────
+
+    @Test
+    @DisplayName("buildCancellationEmail incluye nombre, idExterno, servicio y fecha")
+    void testBuildCancellationEmail_ContenidoCompleto() {
+        String html = builder.buildCancellationEmail(appointment);
+
+        assertTrue(html.contains("Juan Pérez"),             "debe incluir el nombre del cliente");
+        assertTrue(html.contains("AG-ABCD-0001"),           "debe incluir el idExterno");
+        assertTrue(html.contains("Divorcio Contencioso"),   "debe incluir el servicio");
+        assertTrue(html.contains("10 de julio de 2026"),   "debe incluir la fecha formateada");
+        assertTrue(html.contains("cancelada"),              "debe mencionar la cancelación");
+        assertTrue(html.contains("class=\"logo\">SGL"),    "debe incluir el header SGL");
+    }
+
+    @Test
+    @DisplayName("buildCancellationEmail contiene enlace de contacto y pie de página")
+    void testBuildCancellationEmail_IncluyeContactoYFooter() {
+        String html = builder.buildCancellationEmail(appointment);
+
+        assertTrue(html.contains("contacto@sglabogados.cl"), "debe incluir el email de contacto");
+        assertTrue(html.contains("class=\"ftr\""),            "debe incluir el footer");
+    }
+
+    // ── buildRescheduleEmail — SGL-073 GES-NOTIF ─────────────────────────
+
+    @Test
+    @DisplayName("buildRescheduleEmail incluye nombre, idExterno, servicio, nueva fecha y hora")
+    void testBuildRescheduleEmail_ContenidoCompleto() {
+        String html = builder.buildRescheduleEmail(appointment);
+
+        assertTrue(html.contains("Juan Pérez"),             "debe incluir el nombre del cliente");
+        assertTrue(html.contains("AG-ABCD-0001"),           "debe incluir el idExterno");
+        assertTrue(html.contains("Divorcio Contencioso"),   "debe incluir el servicio");
+        assertTrue(html.contains("10 de julio de 2026"),   "debe incluir la nueva fecha formateada");
+        assertTrue(html.contains("10:00"),                  "debe incluir la nueva hora");
+        assertTrue(html.contains("reagendada"),             "debe mencionar el reagendamiento");
+        assertTrue(html.contains("class=\"logo\">SGL"),    "debe incluir el header SGL");
+    }
+
+    @Test
+    @DisplayName("buildRescheduleEmail etiqueta los campos como 'Nueva fecha' y 'Nueva hora'")
+    void testBuildRescheduleEmail_EtiquetasNuevaFechaHora() {
+        String html = builder.buildRescheduleEmail(appointment);
+
+        assertTrue(html.contains("Nueva fecha"), "debe etiquetar la fecha como 'Nueva fecha'");
+        assertTrue(html.contains("Nueva hora"),  "debe etiquetar la hora como 'Nueva hora'");
+    }
+
     // ── buildOtpEmail — SGL-066 GES-OTP ──────────────────────────────────
 
     @Test

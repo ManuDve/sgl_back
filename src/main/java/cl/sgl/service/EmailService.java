@@ -155,11 +155,13 @@ public class EmailService {
         String destinatario = (entry.getTipoEmail() == TipoEmail.NOTIF_ADMIN)
             ? adminEmail : appointment.getEmail();
         MailtrapMail mail = switch (entry.getTipoEmail()) {
-            case CONFIRMACION_CLIENTE -> buildConfirmationMail(appointment);
-            case NOTIF_ADMIN          -> buildAdminMail(appointment);
-            case REMINDER_24H         -> buildReminderMail(appointment, ReminderTipo.REMIND_24H);
-            case REMINDER_2H          -> buildReminderMail(appointment, ReminderTipo.REMIND_2H);
-            case OTP_VERIFICACION     -> throw new IllegalStateException("OTP no se reintenta — código expirado");
+            case CONFIRMACION_CLIENTE    -> buildConfirmationMail(appointment);
+            case NOTIF_ADMIN             -> buildAdminMail(appointment);
+            case REMINDER_24H            -> buildReminderMail(appointment, ReminderTipo.REMIND_24H);
+            case REMINDER_2H             -> buildReminderMail(appointment, ReminderTipo.REMIND_2H);
+            case CANCELACION_CLIENTE     -> buildCancellationMail(appointment);
+            case REAGENDAMIENTO_CLIENTE  -> buildRescheduleMail(appointment);
+            case OTP_VERIFICACION        -> throw new IllegalStateException("OTP no se reintenta — código expirado");
         };
         try {
             mailtrapClient.send(mail);
@@ -192,6 +194,24 @@ public class EmailService {
             .build();
     }
 
+    private MailtrapMail buildCancellationMail(Appointment appointment) {
+        return MailtrapMail.builder()
+            .from(new Address(fromEmail, FROM_NAME))
+            .to(List.of(new Address(appointment.getEmail())))
+            .subject("Tu consulta ha sido cancelada — " + appointment.getIdExterno())
+            .html(templateBuilder.buildCancellationEmail(appointment))
+            .build();
+    }
+
+    private MailtrapMail buildRescheduleMail(Appointment appointment) {
+        return MailtrapMail.builder()
+            .from(new Address(fromEmail, FROM_NAME))
+            .to(List.of(new Address(appointment.getEmail())))
+            .subject("Tu consulta ha sido reagendada — " + appointment.getIdExterno())
+            .html(templateBuilder.buildRescheduleEmail(appointment))
+            .build();
+    }
+
     private MailtrapMail buildReminderMail(Appointment appointment, ReminderTipo tipo) {
         String subject = (tipo == ReminderTipo.REMIND_24H)
             ? "Recordatorio: tu consulta es mañana — " + appointment.getIdExterno()
@@ -205,6 +225,46 @@ public class EmailService {
             .subject(subject)
             .html(html)
             .build();
+    }
+
+    /**
+     * Envía email de cancelación al cliente cuando su cita es cancelada.
+     * Si falla, encola el reintento en email_retry_queue.
+     *
+     * Historia: SGL-073 GES-NOTIF
+     */
+    public void sendCancellationEmail(Appointment appointment) {
+        try {
+            mailtrapClient.send(buildCancellationMail(appointment));
+            notificationLogService.logSuccess(appointment.getId(), TipoEmail.CANCELACION_CLIENTE, appointment.getEmail());
+            log.info("Email de cancelación enviado → {} [{}]",
+                appointment.getEmail(), appointment.getIdExterno());
+        } catch (Exception e) {
+            log.error("No se pudo enviar email de cancelación para {} — {}",
+                appointment.getIdExterno(), e.getMessage());
+            notificationLogService.logFailure(appointment.getId(), TipoEmail.CANCELACION_CLIENTE, appointment.getEmail(), e.getMessage());
+            enqueueRetry(appointment.getId(), TipoEmail.CANCELACION_CLIENTE, e.getMessage());
+        }
+    }
+
+    /**
+     * Envía email de reagendamiento al cliente con la nueva fecha y hora.
+     * Si falla, encola el reintento en email_retry_queue.
+     *
+     * Historia: SGL-073 GES-NOTIF
+     */
+    public void sendRescheduleEmail(Appointment appointment) {
+        try {
+            mailtrapClient.send(buildRescheduleMail(appointment));
+            notificationLogService.logSuccess(appointment.getId(), TipoEmail.REAGENDAMIENTO_CLIENTE, appointment.getEmail());
+            log.info("Email de reagendamiento enviado → {} [{}]",
+                appointment.getEmail(), appointment.getIdExterno());
+        } catch (Exception e) {
+            log.error("No se pudo enviar email de reagendamiento para {} — {}",
+                appointment.getIdExterno(), e.getMessage());
+            notificationLogService.logFailure(appointment.getId(), TipoEmail.REAGENDAMIENTO_CLIENTE, appointment.getEmail(), e.getMessage());
+            enqueueRetry(appointment.getId(), TipoEmail.REAGENDAMIENTO_CLIENTE, e.getMessage());
+        }
     }
 
     /**

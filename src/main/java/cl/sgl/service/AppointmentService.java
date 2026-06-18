@@ -451,6 +451,11 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Estado agendamiento ID={} cambiado: {} → {}", id, estadoAnterior, nuevoEstado);
+
+        if (AppointmentStatus.CANCELLED.equals(nuevoEstado)) {
+            emailService.sendCancellationEmail(saved); // SGL-073
+        }
+
         return mapToDetail(saved);
     }
 
@@ -515,6 +520,7 @@ public class AppointmentService {
             idExterno, fechaAnterior, horaAnterior,
             saved.getFecha(), saved.getHora(), saved.getEstado());
 
+        emailService.sendRescheduleEmail(saved); // SGL-073
         return mapToDetail(saved);
     }
 
@@ -568,6 +574,7 @@ public class AppointmentService {
             id, fechaAnterior, horaAnterior,
             saved.getFecha(), saved.getHora(), saved.getEstado());
 
+        emailService.sendRescheduleEmail(saved); // SGL-073
         return mapToDetail(saved);
     }
 
@@ -612,6 +619,7 @@ public class AppointmentService {
         log.info("Cita cancelada — idExterno={} | {} {} | {} → CANCELLED",
             idExterno, saved.getFecha(), saved.getHora(), estadoAnterior);
 
+        emailService.sendCancellationEmail(saved); // SGL-073
         return mapToDetail(saved);
     }
 

@@ -248,6 +248,73 @@ public class EmailTemplateBuilder {
         );
     }
 
+    /**
+     * Email de cancelación de cita al cliente.
+     * Historia: SGL-073 GES-NOTIF
+     */
+    public String buildCancellationEmail(Appointment a) {
+        String body =
+            "<p style=\"font-size:16px;color:#222;margin:0 0 14px;\">Estimado/a " +
+            "<strong>" + a.getNombreCliente() + "</strong>,</p>" +
+            "<p class=\"note\">Te informamos que tu consulta ha sido " +
+            "<strong style=\"color:#e53e3e;\">cancelada</strong>. " +
+            "A continuación los datos de la cita cancelada:</p>" +
+            "<div class=\"box\"><table>" +
+            "<tr><td class=\"lbl\">N° de cita</td>" +
+                "<td class=\"val\"><span class=\"id\">" + a.getIdExterno() + "</span></td></tr>" +
+            "<tr><td class=\"lbl\">Servicio</td>" +
+                "<td class=\"val\">" + a.getService().getName() + "</td></tr>" +
+            "<tr><td class=\"lbl\">Fecha</td>" +
+                "<td class=\"val\">" + formatFecha(a.getFecha()) + "</td></tr>" +
+            "<tr><td class=\"lbl\">Hora</td>" +
+                "<td class=\"val\">" + formatHora(a.getHora()) + "</td></tr>" +
+            "</table></div>" +
+            "<p class=\"note\">Si crees que esto fue un error o deseas agendar una nueva consulta, " +
+            "contáctanos y te ayudaremos a la brevedad.</p>" +
+            "<p class=\"note\">¿Tienes dudas? Escríbenos a " +
+            "<a href=\"mailto:contacto@sglabogados.cl\" style=\"color:#C9A84C;\">" +
+            "contacto@sglabogados.cl</a></p>";
+
+        return wrap(
+            "Estudio Jurídico · Santiago, Chile",
+            body,
+            "Este mensaje fue generado automáticamente, no respondas a este correo."
+        );
+    }
+
+    /**
+     * Email de reagendamiento de cita al cliente con la nueva fecha y hora.
+     * Historia: SGL-073 GES-NOTIF
+     */
+    public String buildRescheduleEmail(Appointment a) {
+        String body =
+            "<p style=\"font-size:16px;color:#222;margin:0 0 14px;\">Estimado/a " +
+            "<strong>" + a.getNombreCliente() + "</strong>,</p>" +
+            "<p class=\"note\">Tu consulta ha sido " +
+            "<strong style=\"color:#3182ce;\">reagendada</strong> con los siguientes datos:</p>" +
+            "<div class=\"box\"><table>" +
+            "<tr><td class=\"lbl\">N° de cita</td>" +
+                "<td class=\"val\"><span class=\"id\">" + a.getIdExterno() + "</span></td></tr>" +
+            "<tr><td class=\"lbl\">Servicio</td>" +
+                "<td class=\"val\">" + a.getService().getName() + "</td></tr>" +
+            "<tr><td class=\"lbl\">Nueva fecha</td>" +
+                "<td class=\"val\">" + formatFecha(a.getFecha()) + "</td></tr>" +
+            "<tr><td class=\"lbl\">Nueva hora</td>" +
+                "<td class=\"val\">" + formatHora(a.getHora()) + "</td></tr>" +
+            "</table></div>" +
+            "<p class=\"note\">Si necesitas realizar algún cambio adicional, " +
+            "contáctanos con al menos 24 horas de anticipación.</p>" +
+            "<p class=\"note\">¿Tienes dudas? Escríbenos a " +
+            "<a href=\"mailto:contacto@sglabogados.cl\" style=\"color:#C9A84C;\">" +
+            "contacto@sglabogados.cl</a></p>";
+
+        return wrap(
+            "Estudio Jurídico · Santiago, Chile",
+            body,
+            "Este mensaje fue generado automáticamente, no respondas a este correo."
+        );
+    }
+
     // ── Helpers de formato (package-private para tests) ────────────────
 
     static String formatFecha(LocalDate fecha) {

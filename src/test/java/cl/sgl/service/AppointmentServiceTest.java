@@ -1452,4 +1452,74 @@ class AppointmentServiceTest {
 
         assertEquals("CANCELLED", result.getEstado());
     }
+
+    // ── SGL-073 GES-NOTIF — notificaciones de cancelación y reagendamiento ──
+
+    @Test
+    @DisplayName("cancel invoca sendCancellationEmail tras cambiar estado a CANCELLED")
+    void testCancel_InvocaSendCancellationEmail() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        appointmentService.cancel("AG-TEST-0010");
+
+        verify(emailService).sendCancellationEmail(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("reschedule invoca sendRescheduleEmail con los nuevos datos de la cita")
+    void testReschedule_InvocaSendRescheduleEmail() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.PENDING);
+        LocalDate nuevaFecha = LocalDate.now().plusDays(5);
+        LocalTime nuevaHora  = LocalTime.of(11, 0);
+
+        when(appointmentRepository.findByIdExterno("AG-TEST-0010")).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        appointmentService.reschedule("AG-TEST-0010", new RescheduleRequest(nuevaFecha, nuevaHora));
+
+        verify(emailService).sendRescheduleEmail(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("adminReschedule invoca sendRescheduleEmail con los nuevos datos de la cita")
+    void testAdminReschedule_InvocaSendRescheduleEmail() {
+        Appointment futura = buildFutureAppointment(AppointmentStatus.CONFIRMED);
+        LocalDate nuevaFecha = LocalDate.now().plusDays(3);
+        LocalTime nuevaHora  = LocalTime.of(14, 0);
+
+        when(appointmentRepository.findById(10L)).thenReturn(Optional.of(futura));
+        when(appointmentRepository.existsByFechaAndHoraAndEstadoInAndIdNot(any(), any(), anyList(), anyLong()))
+            .thenReturn(false);
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        appointmentService.adminReschedule(10L, new RescheduleRequest(nuevaFecha, nuevaHora));
+
+        verify(emailService).sendRescheduleEmail(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("updateStatus invoca sendCancellationEmail cuando el nuevo estado es CANCELLED")
+    void testUpdateStatus_CancelAdminInvocaSendCancellationEmail() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(pendingAppointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        appointmentService.updateStatus(1L, new UpdateAppointmentStatusRequest("CANCELADO"));
+
+        verify(emailService).sendCancellationEmail(any(Appointment.class));
+    }
+
+    @Test
+    @DisplayName("updateStatus NO invoca sendCancellationEmail cuando el nuevo estado no es CANCELLED")
+    void testUpdateStatus_ConfirmadoNoInvocaSendCancellationEmail() {
+        when(appointmentRepository.findById(1L)).thenReturn(Optional.of(pendingAppointment));
+        when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        appointmentService.updateStatus(1L, new UpdateAppointmentStatusRequest("CONFIRMADO"));
+
+        verify(emailService, never()).sendCancellationEmail(any(Appointment.class));
+    }
 }

@@ -467,6 +467,136 @@ class EmailServiceTest {
         verify(mockNotifLog).logSuccess(1L, TipoEmail.NOTIF_ADMIN, "admin@test.cl");
     }
 
+    // ── SGL-073 GES-NOTIF — sendCancellationEmail ────────────────────────
+
+    @Test
+    @DisplayName("sendCancellationEmail envía al email del cliente con asunto correcto")
+    void testSendCancellationEmail_DatosCorrectos() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendCancellationEmail(appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        MailtrapMail mail = captor.getValue();
+        assertEquals("juan.perez@example.cl", mail.getTo().get(0).getEmail());
+        assertTrue(mail.getSubject().contains("cancelada"),     "asunto debe mencionar 'cancelada'");
+        assertTrue(mail.getSubject().contains("AG-ABCD-0001"), "asunto debe incluir el idExterno");
+        assertTrue(mail.getHtml().contains("AG-ABCD-0001"),    "html debe incluir el idExterno");
+        assertTrue(mail.getHtml().contains("Juan Pérez"),      "html debe incluir el nombre del cliente");
+    }
+
+    @Test
+    @DisplayName("sendCancellationEmail no lanza excepción si el cliente falla")
+    void testSendCancellationEmail_ErrorNoLanzaExcepcion() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        assertDoesNotThrow(() -> emailService.sendCancellationEmail(appointment));
+    }
+
+    @Test
+    @DisplayName("sendCancellationEmail encola en retry queue con tipo CANCELACION_CLIENTE si falla")
+    void testSendCancellationEmail_ErrorEncolarEnRetryQueue() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        emailService.sendCancellationEmail(appointment);
+
+        ArgumentCaptor<EmailRetryQueue> captor = ArgumentCaptor.forClass(EmailRetryQueue.class);
+        verify(mockRetryQueue).save(captor.capture());
+        assertEquals(TipoEmail.CANCELACION_CLIENTE, captor.getValue().getTipoEmail());
+        assertEquals(EstadoRetry.PENDIENTE,         captor.getValue().getEstado());
+    }
+
+    @Test
+    @DisplayName("sendCancellationEmail exitoso registra notificación con tipo CANCELACION_CLIENTE")
+    void testSendCancellationEmail_ExitosoRegistraNotificacion() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendCancellationEmail(appointment);
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.CANCELACION_CLIENTE, "juan.perez@example.cl");
+        verify(mockNotifLog, never()).logFailure(any(), any(), any(), any());
+    }
+
+    // ── SGL-073 GES-NOTIF — sendRescheduleEmail ──────────────────────────
+
+    @Test
+    @DisplayName("sendRescheduleEmail envía al email del cliente con asunto correcto")
+    void testSendRescheduleEmail_DatosCorrectos() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendRescheduleEmail(appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        MailtrapMail mail = captor.getValue();
+        assertEquals("juan.perez@example.cl", mail.getTo().get(0).getEmail());
+        assertTrue(mail.getSubject().contains("reagendada"),   "asunto debe mencionar 'reagendada'");
+        assertTrue(mail.getSubject().contains("AG-ABCD-0001"), "asunto debe incluir el idExterno");
+        assertTrue(mail.getHtml().contains("AG-ABCD-0001"),    "html debe incluir el idExterno");
+        assertTrue(mail.getHtml().contains("Juan Pérez"),      "html debe incluir el nombre del cliente");
+    }
+
+    @Test
+    @DisplayName("sendRescheduleEmail no lanza excepción si el cliente falla")
+    void testSendRescheduleEmail_ErrorNoLanzaExcepcion() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        assertDoesNotThrow(() -> emailService.sendRescheduleEmail(appointment));
+    }
+
+    @Test
+    @DisplayName("sendRescheduleEmail encola en retry queue con tipo REAGENDAMIENTO_CLIENTE si falla")
+    void testSendRescheduleEmail_ErrorEncolarEnRetryQueue() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenThrow(new RuntimeException("timeout"));
+
+        emailService.sendRescheduleEmail(appointment);
+
+        ArgumentCaptor<EmailRetryQueue> captor = ArgumentCaptor.forClass(EmailRetryQueue.class);
+        verify(mockRetryQueue).save(captor.capture());
+        assertEquals(TipoEmail.REAGENDAMIENTO_CLIENTE, captor.getValue().getTipoEmail());
+        assertEquals(EstadoRetry.PENDIENTE,            captor.getValue().getEstado());
+    }
+
+    @Test
+    @DisplayName("sendRescheduleEmail exitoso registra notificación con tipo REAGENDAMIENTO_CLIENTE")
+    void testSendRescheduleEmail_ExitosoRegistraNotificacion() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+
+        emailService.sendRescheduleEmail(appointment);
+
+        verify(mockNotifLog).logSuccess(1L, TipoEmail.REAGENDAMIENTO_CLIENTE, "juan.perez@example.cl");
+        verify(mockNotifLog, never()).logFailure(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("retryEmail CANCELACION_CLIENTE envía email de cancelación al cliente")
+    void testRetryEmail_CancelacionCliente_EnviaEmailAlCliente() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.CANCELACION_CLIENTE);
+
+        emailService.retryEmail(entry, appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        assertEquals("juan.perez@example.cl", captor.getValue().getTo().get(0).getEmail());
+        assertTrue(captor.getValue().getSubject().contains("cancelada"));
+    }
+
+    @Test
+    @DisplayName("retryEmail REAGENDAMIENTO_CLIENTE envía email de reagendamiento al cliente")
+    void testRetryEmail_ReagendamientoCliente_EnviaEmailAlCliente() throws Exception {
+        when(mockClient.send(any(MailtrapMail.class))).thenReturn(mock(SendResponse.class));
+        EmailRetryQueue entry = buildRetryEntry(TipoEmail.REAGENDAMIENTO_CLIENTE);
+
+        emailService.retryEmail(entry, appointment);
+
+        ArgumentCaptor<MailtrapMail> captor = ArgumentCaptor.forClass(MailtrapMail.class);
+        verify(mockClient).send(captor.capture());
+        assertEquals("juan.perez@example.cl", captor.getValue().getTo().get(0).getEmail());
+        assertTrue(captor.getValue().getSubject().contains("reagendada"));
+    }
+
     // ── SGL-066 GES-OTP — sendOtpEmail ───────────────────────────────────
 
     @Test
