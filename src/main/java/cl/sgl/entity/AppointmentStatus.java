@@ -3,7 +3,13 @@ package cl.sgl.entity;
 public enum AppointmentStatus {
     PENDING,
     CONFIRMED,
-    CANCELLED;
+    CANCELLED,
+    /**
+     * Valor heredado — solo para compatibilidad con filas de DB anteriores a V011.
+     * La migración V011 convierte estas filas a PENDING+reagendado=true.
+     * No exponer via API ni usar en código nuevo.
+     */
+    RESCHEDULED;
 
     public static AppointmentStatus fromString(String value) {
         return switch (value.toUpperCase().trim()) {

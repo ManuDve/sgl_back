@@ -233,6 +233,12 @@ public class AppointmentService {
     }
 
     private AppointmentDetailDTO mapToDetail(Appointment appointment) {
+        // RESCHEDULED es valor heredado (pre-V011): se normaliza a PENDING con reagendado=true
+        boolean heredadoRescheduled = AppointmentStatus.RESCHEDULED.equals(appointment.getEstado());
+        String estadoNormalizado = heredadoRescheduled
+            ? AppointmentStatus.PENDING.name()
+            : appointment.getEstado().name();
+
         return AppointmentDetailDTO.builder()
             .id(appointment.getId())
             .idExterno(appointment.getIdExterno())
@@ -246,8 +252,8 @@ public class AppointmentService {
             .fecha(appointment.getFecha())
             .hora(appointment.getHora())
             .monto(appointment.getMonto())
-            .estado(appointment.getEstado().name())
-            .reagendado(Boolean.TRUE.equals(appointment.getReagendado()))
+            .estado(estadoNormalizado)
+            .reagendado(heredadoRescheduled || Boolean.TRUE.equals(appointment.getReagendado()))
             .codigoTransaccion(appointment.getCodigoTransaccion())
             .montoConfirmado(appointment.getMontoConfirmado())
             .fechaPago(appointment.getFechaPago())
@@ -302,7 +308,7 @@ public class AppointmentService {
 
         if (appointmentRepository.existsByFechaAndHoraAndEstadoIn(
                 request.getFecha(), request.getHora(),
-                List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED))) {
+                List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.RESCHEDULED))) {
             throw new AppointmentConflictException(
                 "El horario " + request.getHora() + " del " + request.getFecha()
                 + " ya está reservado por otro agendamiento.");
@@ -710,6 +716,12 @@ public class AppointmentService {
     }
 
     private AppointmentSummaryDTO mapToSummary(Appointment appointment) {
+        // RESCHEDULED es valor heredado (pre-V011): se normaliza a PENDING con reagendado=true
+        boolean heredadoRescheduled = AppointmentStatus.RESCHEDULED.equals(appointment.getEstado());
+        String estadoNormalizado = heredadoRescheduled
+            ? AppointmentStatus.PENDING.name()
+            : appointment.getEstado().name();
+
         return AppointmentSummaryDTO.builder()
             .id(appointment.getId())
             .idExterno(appointment.getIdExterno())
@@ -719,8 +731,8 @@ public class AppointmentService {
             .fecha(appointment.getFecha())
             .hora(appointment.getHora())
             .monto(appointment.getMonto())
-            .estado(appointment.getEstado().name())
-            .reagendado(Boolean.TRUE.equals(appointment.getReagendado()))
+            .estado(estadoNormalizado)
+            .reagendado(heredadoRescheduled || Boolean.TRUE.equals(appointment.getReagendado()))
             .descripcion(appointment.getDescripcion())
             .build();
     }
