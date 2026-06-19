@@ -44,6 +44,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static cl.sgl.service.AuditService.*;
 
 /**
  * Servicio de lógica de negocio para agendamientos.
@@ -59,6 +60,7 @@ public class AppointmentService {
     private final LegalServiceRepository legalServiceRepository;
     private final EmailService emailService;
     private final WhatsAppService whatsAppService;
+    private final AuditService auditService;
 
     // ── CSV helpers (SGL-051) ─────────────────────────────────────────────
 
@@ -423,6 +425,8 @@ public class AppointmentService {
             id, request.getCodigoTransaccion(), appointment.getMonto());
         emailService.sendConfirmationEmail(saved);
         whatsAppService.sendPaymentConfirmedWhatsApp(saved); // SGL-028
+        auditService.log(ACCION_CONFIRMAR_PAGO, ENTIDAD_AGENDAMIENTO, saved.getIdExterno(),
+            "codigo=" + request.getCodigoTransaccion() + " monto=" + saved.getMonto());
 
         return mapToDetail(saved);
     }
@@ -451,6 +455,8 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Estado agendamiento ID={} cambiado: {} → {}", id, estadoAnterior, nuevoEstado);
+        auditService.log(ACCION_CAMBIO_ESTADO, ENTIDAD_AGENDAMIENTO, saved.getIdExterno(),
+            estadoAnterior + " → " + nuevoEstado);
 
         if (AppointmentStatus.CANCELLED.equals(nuevoEstado)) {
             emailService.sendCancellationEmail(saved); // SGL-073

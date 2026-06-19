@@ -41,6 +41,9 @@ class LegalServiceServiceTest {
     @Mock
     private cl.sgl.repository.ServicePriceHistoryRepository priceHistoryRepository;
 
+    @Mock
+    private AuditService auditService;
+
     @InjectMocks
     private LegalServiceService legalServiceService;
 

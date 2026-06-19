@@ -60,6 +60,9 @@ class AppointmentServiceTest {
     @Mock
     private WhatsAppService whatsAppService;
 
+    @Mock
+    private AuditService auditService;
+
     @InjectMocks
     private AppointmentService appointmentService;
 

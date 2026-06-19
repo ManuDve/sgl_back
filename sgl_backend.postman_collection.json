@@ -1,8 +1,9 @@
 {
   "info": {
+    "_postman_id": "3ec6097c-8041-4adb-8803-1f4c5de175bd",
     "name": "SGL Backend",
-    "_postman_id": "b5a6c6a0-1d2c-4b6c-9c3b-8a6e0a8b9c10",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "27268222"
   },
   "item": [
     {
@@ -22,7 +23,8 @@
                 "health"
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -64,7 +66,8 @@
                 "services"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Listar servicios",
@@ -92,7 +95,8 @@
                 "services"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Servicio por ID",
@@ -121,7 +125,8 @@
                 "{{serviceId}}"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "PUT Actualizar servicio",
@@ -159,7 +164,8 @@
                 "{{serviceId}}"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "DELETE Eliminar servicio",
@@ -188,7 +194,8 @@
                 "{{serviceId}}"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "PATCH Actualizar precio de servicio",
@@ -227,7 +234,8 @@
                 "precio"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Historial de precios de servicio",
@@ -257,7 +265,8 @@
                 "historial-precios"
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -280,7 +289,8 @@
                 "services"
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -302,7 +312,8 @@
                 "services"
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -333,7 +344,8 @@
                 "appointments"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "POST Solicitar OTP (GES-OTP)",
@@ -484,7 +496,8 @@
                 }
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Horas disponibles",
@@ -508,7 +521,8 @@
                 }
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Ping agendamiento",
@@ -526,7 +540,8 @@
                 "ping"
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -565,7 +580,8 @@
                 }
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Filtrar agendamientos (search + estado + rango fechas)",
@@ -615,7 +631,8 @@
                 }
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "PATCH Reagendar cita admin (GES-ADMIN-REAG)",
@@ -695,7 +712,8 @@
                 "pago"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "PATCH Cambiar estado",
@@ -734,7 +752,8 @@
                 "estado"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Exportar agendamientos CSV",
@@ -766,14 +785,14 @@
                 {
                   "key": "search",
                   "value": "",
-                  "disabled": true,
-                  "description": "Busca en nombre, email e idExterno"
+                  "description": "Busca en nombre, email e idExterno",
+                  "disabled": true
                 },
                 {
                   "key": "estado",
                   "value": "",
-                  "disabled": true,
-                  "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED"
+                  "description": "PENDING | CONFIRMED | CANCELLED | RESCHEDULED",
+                  "disabled": true
                 },
                 {
                   "key": "desde",
@@ -787,7 +806,8 @@
                 }
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Detalle de agendamiento",
@@ -816,7 +836,8 @@
                 "{{appointmentId}}"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Listar todos los agendamientos",
@@ -844,7 +865,8 @@
                 "appointments"
               ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "GET Calendario (semana 1 de mayo)",
@@ -885,7 +907,8 @@
                 }
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -925,7 +948,61 @@
                 }
               ]
             }
-          }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auditoría - Admin",
+      "item": [
+        {
+          "name": "GET Historial de auditoría paginado",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/admin/audit?page=0&size=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0",
+                  "description": "Número de página (0-indexed)"
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "Tamaño de página"
+                }
+              ]
+            },
+            "description": "Lista acciones administrativas: LOGIN, CAMBIO_ESTADO, CONFIRMAR_PAGO, CAMBIO_PRECIO. Requiere JWT. SGL-055 ADM-AUDIT."
+          },
+          "response": []
         }
       ]
     },
@@ -957,7 +1034,8 @@
                 "login"
               ]
             }
-          }
+          },
+          "response": []
         }
       ]
     }

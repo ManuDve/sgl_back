@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import static cl.sgl.service.AuditService.*;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,6 +37,7 @@ public class LegalServiceService {
 
     private final LegalServiceRepository serviceRepository;
     private final ServicePriceHistoryRepository priceHistoryRepository;
+    private final AuditService auditService;
 
     /**
      * Crea un nuevo servicio.
@@ -231,6 +234,8 @@ public class LegalServiceService {
         LegalService updated = serviceRepository.save(service);
 
         log.info("Precio actualizado — servicio ID={}: {} → {}", id, precioAnterior, request.getPrecio());
+        auditService.log(ACCION_CAMBIO_PRECIO, ENTIDAD_SERVICIO, id.toString(),
+            precioAnterior + " → " + precioNuevo);
         return mapToResponse(updated);
     }
 

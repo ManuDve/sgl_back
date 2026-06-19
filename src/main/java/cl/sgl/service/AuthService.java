@@ -12,6 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import static cl.sgl.service.AuditService.*;
+
 /**
  * Servicio de autenticacion para administradores.
  * Historia: SGL-041 ADM-LOGIN
@@ -25,6 +27,7 @@ public class AuthService {
     private final AdminUserRepository adminUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final AuditService auditService;
 
     public LoginResponse login(LoginRequest request) {
         String email = request.getEmail() == null ? "" : request.getEmail().trim();
@@ -38,6 +41,7 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(adminUser.getEmail(), adminUser.getRole());
+        auditService.log(ACCION_LOGIN, ENTIDAD_AUTH, null, email, null);
         return LoginResponse.builder()
             .token(token)
             .email(adminUser.getEmail())
