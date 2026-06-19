@@ -18,10 +18,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * Flujo actual:
  *   [sin sesión] → cualquier mensaje → menú de opciones
- *   [sin sesión] → "1"              → WAITING_FOR_APPOINTMENT_ID → solicita ID
- *   [WAITING_FOR_APPOINTMENT_ID]    → recibe ID → consulta y responde con detalle o error
+ *   [sin sesión] → "1"              → WAITING_FOR_APPOINTMENT_ID → solicita ID → detalles o error
+ *   [sin sesión] → "2"              → WAITING_FOR_REAGENDAR_ID   → solicita ID → link gestionar o error
+ *   [sin sesión] → "3"              → WAITING_FOR_CANCELAR_ID    → solicita ID → link gestionar o error
  *
- * Historia: SGL-075 WA-CONSULT
+ * Historia: SGL-075 WA-CONSULT, SGL-076 WA-LINK
  */
 @Service
 @Slf4j
@@ -32,9 +33,33 @@ public class WhatsAppBotService {
     static final String MSG_ASK_ID =
         "Por favor, ingresa tu ID de cita (ej: *AG-2026-0001*):";
 
-    static final String MSG_NOT_FOUND_TEMPLATE =
+    static final String MSG_NOT_FOUND_CONSULT =
         "No encontramos ninguna cita con el ID \"%s\".\n\n" +
         "Verifica el ID e intenta nuevamente escribiendo *1*.";
+
+    static final String MSG_REAGENDAR_LINK =
+        "Para reagendar tu cita *%s*, ingresa al siguiente enlace:\n\n%s\n\n" +
+        "Desde ahí podrás elegir una nueva fecha y hora.";
+
+    static final String MSG_CANCELAR_LINK =
+        "Para cancelar tu cita *%s*, ingresa al siguiente enlace:\n\n%s\n\n" +
+        "Recuerda que las cancelaciones deben realizarse con al menos 24 horas de anticipación.";
+
+    static final String MSG_NOT_FOUND_REAGENDAR =
+        "No encontramos ninguna cita con el ID \"%s\".\n\n" +
+        "Verifica el ID e intenta nuevamente escribiendo *2*.";
+
+    static final String MSG_NOT_FOUND_CANCELAR =
+        "No encontramos ninguna cita con el ID \"%s\".\n\n" +
+        "Verifica el ID e intenta nuevamente escribiendo *3*.";
+
+    static final String MSG_ALREADY_CANCELLED =
+        "Tu cita *%s* ya se encuentra cancelada y no puede ser gestionada.\n\n" +
+        "Escribe *1* para consultar el estado de tu cita.";
+
+    static final String MSG_CANNOT_REAGENDAR_CANCELLED =
+        "Tu cita *%s* está cancelada y no puede ser reagendada.\n\n" +
+        "Escribe *1* para consultar el estado de tu cita.";
 
     private static final DateTimeFormatter DATE_FMT =
         DateTimeFormatter.ofPattern("EEEE d 'de' MMMM 'de' yyyy", new Locale("es", "CL"));
@@ -42,6 +67,7 @@ public class WhatsAppBotService {
 
     private final WhatsAppService whatsAppService;
     private final AppointmentRepository appointmentRepository;
+    private final String frontendUrl;
 
     // phone → ConversationEntry (in-memory, no persiste entre reinicios)
     private final ConcurrentHashMap<String, ConversationEntry> sessions = new ConcurrentHashMap<>();
@@ -49,10 +75,12 @@ public class WhatsAppBotService {
     public WhatsAppBotService(
             WhatsAppService whatsAppService,
             AppointmentRepository appointmentRepository,
-            @Value("${whatsapp.bot.session-ttl-minutes:10}") int sessionTtlMinutes) {
+            @Value("${whatsapp.bot.session-ttl-minutes:10}") int sessionTtlMinutes,
+            @Value("${whatsapp.bot.frontend-url:http://localhost:4321}") String frontendUrl) {
         this.whatsAppService = whatsAppService;
         this.appointmentRepository = appointmentRepository;
         this.sessionTtlMinutes = sessionTtlMinutes;
+        this.frontendUrl = frontendUrl;
     }
 
     /**
@@ -77,20 +105,32 @@ public class WhatsAppBotService {
     // ── Handlers por estado ──────────────────────────────────────────────────
 
     private void handleMenuState(String phone, String text) {
-        if ("1".equals(text)) {
-            sessions.put(phone, new ConversationEntry(
-                WhatsAppConversationState.WAITING_FOR_APPOINTMENT_ID,
-                LocalDateTime.now()));
-            whatsAppService.sendBotReply(phone, MSG_ASK_ID);
-        } else {
-            whatsAppService.sendMenuMessage(phone);
+        switch (text) {
+            case "1" -> {
+                sessions.put(phone, new ConversationEntry(
+                    WhatsAppConversationState.WAITING_FOR_APPOINTMENT_ID, LocalDateTime.now()));
+                whatsAppService.sendBotReply(phone, MSG_ASK_ID);
+            }
+            case "2" -> {
+                sessions.put(phone, new ConversationEntry(
+                    WhatsAppConversationState.WAITING_FOR_REAGENDAR_ID, LocalDateTime.now()));
+                whatsAppService.sendBotReply(phone, MSG_ASK_ID);
+            }
+            case "3" -> {
+                sessions.put(phone, new ConversationEntry(
+                    WhatsAppConversationState.WAITING_FOR_CANCELAR_ID, LocalDateTime.now()));
+                whatsAppService.sendBotReply(phone, MSG_ASK_ID);
+            }
+            default -> whatsAppService.sendMenuMessage(phone);
         }
     }
 
     private void handleActiveSession(String phone, String text, WhatsAppConversationState state) {
         sessions.remove(phone);
-        if (state == WhatsAppConversationState.WAITING_FOR_APPOINTMENT_ID) {
-            lookupAppointment(phone, text);
+        switch (state) {
+            case WAITING_FOR_APPOINTMENT_ID -> lookupAppointment(phone, text);
+            case WAITING_FOR_REAGENDAR_ID   -> sendManagementLink(phone, text, true);
+            case WAITING_FOR_CANCELAR_ID    -> sendManagementLink(phone, text, false);
         }
     }
 
@@ -101,8 +141,33 @@ public class WhatsAppBotService {
             whatsAppService.sendBotReply(phone, buildDetailsMessage(opt.get()));
         } else {
             log.warn("Consulta WhatsApp: cita no encontrada — {} desde {}", idExterno, phone);
-            whatsAppService.sendBotReply(phone, String.format(MSG_NOT_FOUND_TEMPLATE, idExterno));
+            whatsAppService.sendBotReply(phone, String.format(MSG_NOT_FOUND_CONSULT, idExterno));
         }
+    }
+
+    private void sendManagementLink(String phone, String idExterno, boolean esReagendamiento) {
+        String id = idExterno.toUpperCase();
+        Optional<Appointment> opt = appointmentRepository.findByIdExterno(id);
+        if (opt.isEmpty()) {
+            String notFound = esReagendamiento ? MSG_NOT_FOUND_REAGENDAR : MSG_NOT_FOUND_CANCELAR;
+            log.warn("Gestión WhatsApp: cita no encontrada — {} desde {}", id, phone);
+            whatsAppService.sendBotReply(phone, String.format(notFound, id));
+            return;
+        }
+
+        Appointment appt = opt.get();
+        if (AppointmentStatus.CANCELLED.equals(appt.getEstado())) {
+            String msgCancelada = esReagendamiento ? MSG_CANNOT_REAGENDAR_CANCELLED : MSG_ALREADY_CANCELLED;
+            log.warn("Gestión WhatsApp: cita {} ya cancelada — intento de {} desde {}", id,
+                esReagendamiento ? "reagendar" : "cancelar", phone);
+            whatsAppService.sendBotReply(phone, String.format(msgCancelada, id));
+            return;
+        }
+
+        String url = frontendUrl + "/gestionar?id=" + id;
+        String template = esReagendamiento ? MSG_REAGENDAR_LINK : MSG_CANCELAR_LINK;
+        log.info("Link gestión ({}) enviado para {} → {}", esReagendamiento ? "reagendar" : "cancelar", id, phone);
+        whatsAppService.sendBotReply(phone, String.format(template, id, url));
     }
 
     // ── Builders de mensajes ─────────────────────────────────────────────────

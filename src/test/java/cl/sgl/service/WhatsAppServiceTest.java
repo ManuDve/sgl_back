@@ -383,4 +383,13 @@ class WhatsAppServiceTest {
 
         assertEquals("+56912345678", service.formatPhone("+56 9 1234 5678"));
     }
+
+    @Test
+    @DisplayName("formatPhone numero internacional no chileno agrega + sin modificar")
+    void testFormatPhone_NumeroInternacionalNoCL_AgregaSoloPrefijo() {
+        WhatsAppService service = new WhatsAppService("+14155238886", false, notificationLogService);
+
+        // 12 dígitos: no coincide con 9 ni con 11 dígitos con prefijo 56 → branch default
+        assertEquals("+14155238886", service.formatPhone("+14155238886"));
+    }
 }

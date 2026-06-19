@@ -39,9 +39,11 @@ class WhatsAppBotServiceTest {
 
     private Appointment appointment;
 
+    private static final String FRONTEND_URL = "http://localhost:4321";
+
     @BeforeEach
     void setUp() {
-        botService = new WhatsAppBotService(whatsAppService, appointmentRepository, 10);
+        botService = new WhatsAppBotService(whatsAppService, appointmentRepository, 10, FRONTEND_URL);
         LegalService servicio = LegalService.builder()
             .id(1L).name("Divorcio Contencioso")
             .price(new BigDecimal("500000")).active(true)
@@ -187,5 +189,156 @@ class WhatsAppBotServiceTest {
         assertTrue(msg.contains("Divorcio Contencioso"));
         assertTrue(msg.contains("10:00"));
         assertFalse(msg.isBlank());
+    }
+
+    @Test
+    @DisplayName("buildDetailsMessage con estado RESCHEDULED (legacy) muestra nombre del enum")
+    void testBuildDetailsMessage_EstadoLegacyRescheduled_MuestraNombreEnum() {
+        appointment.setEstado(AppointmentStatus.RESCHEDULED);
+        appointment.setReagendado(false);
+
+        String msg = botService.buildDetailsMessage(appointment);
+
+        assertTrue(msg.contains("RESCHEDULED"));
+    }
+
+    // ── Opción 2: reagendar ───────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("handleMessage con '2' solicita ID y activa sesión WAITING_FOR_REAGENDAR_ID")
+    void testHandleMessage_Opcion2_SolicitaId() {
+        botService.handleMessage(PHONE, "2");
+
+        verify(whatsAppService).sendBotReply(PHONE, WhatsAppBotService.MSG_ASK_ID);
+    }
+
+    @Test
+    @DisplayName("handleMessage con '2' luego ID válido envía link de reagendamiento con URL correcta")
+    void testHandleMessage_Opcion2_IdValido_EnviaLinkReagendar() {
+        when(appointmentRepository.findByIdExterno("AG-2026-0001")).thenReturn(Optional.of(appointment));
+
+        botService.handleMessage(PHONE, "2");
+        botService.handleMessage(PHONE, "AG-2026-0001");
+
+        verify(whatsAppService).sendBotReply(eq(PHONE), argThat(msg ->
+            msg.contains("AG-2026-0001") &&
+            msg.contains(FRONTEND_URL + "/gestionar?id=AG-2026-0001") &&
+            msg.contains("reagendar")
+        ));
+    }
+
+    @Test
+    @DisplayName("handleMessage con '2' luego ID inexistente responde solo con opción 2 en el error")
+    void testHandleMessage_Opcion2_IdInexistente_RespondeErrorReagendar() {
+        when(appointmentRepository.findByIdExterno(any())).thenReturn(Optional.empty());
+
+        botService.handleMessage(PHONE, "2");
+        botService.handleMessage(PHONE, "AG-XXXX-9999");
+
+        verify(whatsAppService).sendBotReply(eq(PHONE), argThat(msg ->
+            msg.contains("No encontramos") && msg.contains("*2*") && !msg.contains("*3*")
+        ));
+    }
+
+    // ── Opción 3: cancelar ────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("handleMessage con '3' solicita ID y activa sesión WAITING_FOR_CANCELAR_ID")
+    void testHandleMessage_Opcion3_SolicitaId() {
+        botService.handleMessage(PHONE, "3");
+
+        verify(whatsAppService).sendBotReply(PHONE, WhatsAppBotService.MSG_ASK_ID);
+    }
+
+    @Test
+    @DisplayName("handleMessage con '3' luego ID válido envía link de cancelación con URL correcta")
+    void testHandleMessage_Opcion3_IdValido_EnviaLinkCancelar() {
+        when(appointmentRepository.findByIdExterno("AG-2026-0001")).thenReturn(Optional.of(appointment));
+
+        botService.handleMessage(PHONE, "3");
+        botService.handleMessage(PHONE, "AG-2026-0001");
+
+        verify(whatsAppService).sendBotReply(eq(PHONE), argThat(msg ->
+            msg.contains("AG-2026-0001") &&
+            msg.contains(FRONTEND_URL + "/gestionar?id=AG-2026-0001") &&
+            msg.contains("cancelar")
+        ));
+    }
+
+    @Test
+    @DisplayName("handleMessage con '3' luego ID inexistente responde solo con opción 3 en el error")
+    void testHandleMessage_Opcion3_IdInexistente_RespondeErrorCancelar() {
+        when(appointmentRepository.findByIdExterno(any())).thenReturn(Optional.empty());
+
+        botService.handleMessage(PHONE, "3");
+        botService.handleMessage(PHONE, "AG-XXXX-9999");
+
+        verify(whatsAppService).sendBotReply(eq(PHONE), argThat(msg ->
+            msg.contains("No encontramos") && msg.contains("*3*") && !msg.contains("*2*")
+        ));
+    }
+
+    @Test
+    @DisplayName("handleMessage con '2' y cita cancelada informa que no se puede reagendar")
+    void testHandleMessage_Opcion2_CitaCancelada_InformaNoReagendable() {
+        appointment.setEstado(AppointmentStatus.CANCELLED);
+        when(appointmentRepository.findByIdExterno("AG-2026-0001")).thenReturn(Optional.of(appointment));
+
+        botService.handleMessage(PHONE, "2");
+        botService.handleMessage(PHONE, "AG-2026-0001");
+
+        verify(whatsAppService).sendBotReply(eq(PHONE), argThat(msg ->
+            msg.contains("cancelada") && !msg.contains("/gestionar")
+        ));
+    }
+
+    @Test
+    @DisplayName("handleMessage con '3' y cita ya cancelada informa que ya está cancelada")
+    void testHandleMessage_Opcion3_CitaYaCancelada_InformaYaCancelada() {
+        appointment.setEstado(AppointmentStatus.CANCELLED);
+        when(appointmentRepository.findByIdExterno("AG-2026-0001")).thenReturn(Optional.of(appointment));
+
+        botService.handleMessage(PHONE, "3");
+        botService.handleMessage(PHONE, "AG-2026-0001");
+
+        verify(whatsAppService).sendBotReply(eq(PHONE), argThat(msg ->
+            msg.contains("cancelada") && !msg.contains("/gestionar")
+        ));
+    }
+
+    @Test
+    @DisplayName("link de reagendar y de cancelar apuntan a la misma URL base de gestión")
+    void testHandleMessage_AmbasOpciones_MismaUrlBase() {
+        when(appointmentRepository.findByIdExterno("AG-2026-0001")).thenReturn(Optional.of(appointment));
+
+        botService.handleMessage(PHONE, "2");
+        botService.handleMessage(PHONE, "AG-2026-0001");
+        botService.clearSession(PHONE);
+
+        when(appointmentRepository.findByIdExterno("AG-2026-0001")).thenReturn(Optional.of(appointment));
+
+        botService.handleMessage(PHONE, "3");
+        botService.handleMessage(PHONE, "AG-2026-0001");
+
+        verify(whatsAppService, times(2)).sendBotReply(eq(PHONE), argThat(msg ->
+            msg.contains(FRONTEND_URL + "/gestionar?id=AG-2026-0001")
+        ));
+    }
+
+    // ── clearSession ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("clearSession elimina la sesión activa del número")
+    void testClearSession_EliminaSesionActiva() {
+        // Activar sesión con "1"
+        botService.handleMessage(PHONE, "1");
+        // Limpiar manualmente
+        botService.clearSession(PHONE);
+        // El siguiente mensaje debe tratarse como inicio (menú), no como ID
+        botService.handleMessage(PHONE, "AG-2026-0001");
+
+        // Nunca debería buscar en el repo porque no hay sesión activa
+        verify(appointmentRepository, never()).findByIdExterno(any());
+        verify(whatsAppService, atLeastOnce()).sendMenuMessage(PHONE);
     }
 }
