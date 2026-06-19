@@ -33,11 +33,11 @@ El sistema incluye un módulo de notificaciones con reintentos automáticos, ges
 
 ## Tablero Kanban
 
-https://gestor-legal.atlassian.net/jira/software/projects/DEV/boards/1
+https://gestor-legal.atlassian.net/jira/software/projects/SGL/boards/1
 
 ## Confluence
 
-https://gestor-legal.atlassian.net/wiki/spaces/~7120201ea05b60bb4f43c98ac238acf9179f38/pages/edit-v2/17268737
+https://gestor-legal.atlassian.net/wiki/spaces/~7120201ea05b60bb4f43c98ac238acf9179f38/pages/17268737/ndice+de+documentaci+n+t+cnica+Sistema+de+Gesti+n+Legal+SGL
 
 La documentacion tecnica adicional esta disponible en la carpeta `DOCUMENTACION/`.
 
