@@ -1,6 +1,6 @@
 package cl.sgl.controller;
 
-import cl.sgl.service.WhatsAppService;
+import cl.sgl.service.WhatsAppBotService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Webhook para mensajes entrantes de WhatsApp (Twilio).
  * Twilio envía un POST con form-params cada vez que alguien escribe al número.
- * La respuesta es siempre HTTP 200 vacío; el menú se envía como mensaje saliente.
+ * La respuesta es siempre HTTP 200 vacío; el bot responde vía Twilio API.
  *
- * Historia: SGL-074 WA-MENU
+ * Historia: SGL-074 WA-MENU, SGL-075 WA-CONSULT
  */
 @RestController
 @RequestMapping("/api/whatsapp")
@@ -22,13 +22,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class WhatsAppWebhookController {
 
-    private final WhatsAppService whatsAppService;
+    private final WhatsAppBotService whatsAppBotService;
 
     /**
-     * Recibe mensajes entrantes de Twilio WhatsApp y responde con el menú de opciones.
+     * Recibe mensajes entrantes de Twilio WhatsApp y los enruta al bot.
      *
      * @param from número del remitente en formato "whatsapp:+56XXXXXXXXX"
-     * @param body contenido del mensaje recibido (solo para logging)
+     * @param body contenido del mensaje recibido
      */
     @PostMapping("/webhook")
     public ResponseEntity<Void> handleInbound(
@@ -44,7 +44,7 @@ public class WhatsAppWebhookController {
         log.info("Mensaje entrante WhatsApp de {} — '{}'", phone,
             body != null ? body.substring(0, Math.min(body.length(), 80)) : "");
 
-        whatsAppService.sendMenuMessage(phone);
+        whatsAppBotService.handleMessage(phone, body);
         return ResponseEntity.ok().build();
     }
 }

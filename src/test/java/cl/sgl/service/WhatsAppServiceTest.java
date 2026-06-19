@@ -266,6 +266,37 @@ class WhatsAppServiceTest {
         ));
     }
 
+    // ── sendBotReply ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("sendBotReply no configurado retorna false sin enviar")
+    void testSendBotReply_NoConfigurado_RetornaFalse() {
+        WhatsAppService service = new WhatsAppService("+14155238886", false, notificationLogService);
+
+        assertFalse(service.sendBotReply("+56912345678", "hola"));
+        verifyNoInteractions(notificationLogService);
+    }
+
+    @Test
+    @DisplayName("sendBotReply configurado envía texto libre y retorna true")
+    void testSendBotReply_Configurado_EnviaTextoLibreYRetornaTrue() {
+        WhatsAppService service = spy(new WhatsAppService("+14155238886", true, notificationLogService));
+        doNothing().when(service).doSendFreeform(anyString(), anyString());
+
+        assertTrue(service.sendBotReply("+56912345678", "Mensaje del bot"));
+
+        verify(service).doSendFreeform(eq("+56912345678"), eq("Mensaje del bot"));
+    }
+
+    @Test
+    @DisplayName("sendBotReply falla en envío retorna false")
+    void testSendBotReply_FallaEnvio_RetornaFalse() {
+        WhatsAppService service = spy(new WhatsAppService("+14155238886", true, notificationLogService));
+        doThrow(new RuntimeException("error")).when(service).doSendFreeform(anyString(), anyString());
+
+        assertFalse(service.sendBotReply("+56912345678", "msg"));
+    }
+
     // ── sendMenuMessage ───────────────────────────────────────────────────────
 
     @Test

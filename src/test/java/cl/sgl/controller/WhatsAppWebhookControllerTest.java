@@ -1,6 +1,6 @@
 package cl.sgl.controller;
 
-import cl.sgl.service.WhatsAppService;
+import cl.sgl.service.WhatsAppBotService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,49 +15,48 @@ import static org.mockito.Mockito.*;
 
 /**
  * Tests unitarios para WhatsAppWebhookController.
- * Historia: SGL-074 WA-MENU
+ * Historia: SGL-074 WA-MENU, SGL-075 WA-CONSULT
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("WhatsAppWebhookController Tests")
 class WhatsAppWebhookControllerTest {
 
     @Mock
-    private WhatsAppService whatsAppService;
+    private WhatsAppBotService whatsAppBotService;
 
     @InjectMocks
     private WhatsAppWebhookController controller;
 
     @Test
-    @DisplayName("handleInbound llama sendMenuMessage con número sin prefijo whatsapp:")
-    void testHandleInbound_LlamaSendMenuConNumeroSinPrefijo() {
-        controller.handleInbound("whatsapp:+56912345678", "hola");
+    @DisplayName("handleInbound llama handleMessage con número sin prefijo whatsapp: y body")
+    void testHandleInbound_LlamaHandleMessageConDatos() {
+        controller.handleInbound("whatsapp:+56912345678", "1");
 
-        verify(whatsAppService).sendMenuMessage("+56912345678");
+        verify(whatsAppBotService).handleMessage("+56912345678", "1");
     }
 
     @Test
     @DisplayName("handleInbound retorna HTTP 200")
     void testHandleInbound_Retorna200() {
-        ResponseEntity<Void> resp = controller.handleInbound("whatsapp:+56912345678", "cualquier texto");
+        ResponseEntity<Void> resp = controller.handleInbound("whatsapp:+56912345678", "hola");
 
         assertEquals(200, resp.getStatusCode().value());
     }
 
     @Test
-    @DisplayName("handleInbound sin From no llama sendMenuMessage y retorna 200")
-    void testHandleInbound_SinFrom_NoLlamaSendMenu() {
+    @DisplayName("handleInbound sin From no llama handleMessage y retorna 200")
+    void testHandleInbound_SinFrom_NoLlamaBot() {
         ResponseEntity<Void> resp = controller.handleInbound(null, "hola");
 
-        verify(whatsAppService, never()).sendMenuMessage(any());
+        verify(whatsAppBotService, never()).handleMessage(any(), any());
         assertEquals(200, resp.getStatusCode().value());
     }
 
     @Test
-    @DisplayName("handleInbound con From vacío no llama sendMenuMessage")
-    void testHandleInbound_FromVacio_NoLlamaSendMenu() {
+    @DisplayName("handleInbound con From vacío no llama handleMessage")
+    void testHandleInbound_FromVacio_NoLlamaBot() {
         controller.handleInbound("  ", "hola");
 
-        verify(whatsAppService, never()).sendMenuMessage(any());
+        verify(whatsAppBotService, never()).handleMessage(any(), any());
     }
-
 }

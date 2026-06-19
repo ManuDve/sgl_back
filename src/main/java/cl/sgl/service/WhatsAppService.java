@@ -161,6 +161,30 @@ public class WhatsAppService {
     }
 
     /**
+     * Envía un mensaje de texto libre como respuesta del bot.
+     * Se usa para las respuestas interactivas del flujo de consulta/gestión.
+     * No registra en notification_log porque no está vinculado a ningún agendamiento.
+     *
+     * @param phone   número del cliente en formato E.164
+     * @param message texto a enviar
+     * @return true si el mensaje fue enviado, false en caso contrario
+     */
+    public boolean sendBotReply(String phone, String message) {
+        if (!configured) {
+            log.debug("WhatsApp no configurado — se omite respuesta bot para {}", phone);
+            return false;
+        }
+        try {
+            doSendFreeform(phone, message);
+            log.info("Respuesta bot enviada → {}", phone);
+            return true;
+        } catch (Exception e) {
+            log.error("No se pudo enviar respuesta bot a {} — {}", phone, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Envía el menú de bienvenida al número que acaba de escribir.
      * Se invoca desde el webhook de mensajes entrantes de Twilio.
      * Si TWILIO_MENU_CONTENT_SID está definido, usa el Content Template (sin variables).
