@@ -23,6 +23,7 @@ El sistema incluye un módulo de notificaciones con reintentos automáticos, ges
 - OWASP HTML Sanitizer para prevención de XSS
 - Maven como herramienta de build
 - Docker y Docker Compose para la base de datos local
+- Twilio API para integración con WhatsApp
 
 ## Estructura del equipo
 
