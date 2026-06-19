@@ -4,6 +4,7 @@ import cl.sgl.entity.Appointment;
 import cl.sgl.entity.AppointmentStatus;
 import cl.sgl.repository.AppointmentRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,7 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Bot de WhatsApp con estado por conversación (en memoria, TTL 10 minutos).
+ * Bot de WhatsApp con estado por conversación (en memoria, TTL configurable).
  *
  * Flujo actual:
  *   [sin sesión] → cualquier mensaje → menú de opciones
@@ -26,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class WhatsAppBotService {
 
-    static final int SESSION_TTL_MINUTES = 10;
+    private final int sessionTtlMinutes;
 
     static final String MSG_ASK_ID =
         "Por favor, ingresa tu ID de cita (ej: *AG-2026-0001*):";
@@ -45,10 +46,13 @@ public class WhatsAppBotService {
     // phone → ConversationEntry (in-memory, no persiste entre reinicios)
     private final ConcurrentHashMap<String, ConversationEntry> sessions = new ConcurrentHashMap<>();
 
-    public WhatsAppBotService(WhatsAppService whatsAppService,
-                               AppointmentRepository appointmentRepository) {
+    public WhatsAppBotService(
+            WhatsAppService whatsAppService,
+            AppointmentRepository appointmentRepository,
+            @Value("${whatsapp.bot.session-ttl-minutes:10}") int sessionTtlMinutes) {
         this.whatsAppService = whatsAppService;
         this.appointmentRepository = appointmentRepository;
+        this.sessionTtlMinutes = sessionTtlMinutes;
     }
 
     /**
@@ -126,7 +130,7 @@ public class WhatsAppBotService {
 
     private boolean isExpired(ConversationEntry entry) {
         return entry.createdAt()
-            .plusMinutes(SESSION_TTL_MINUTES)
+            .plusMinutes(sessionTtlMinutes)
             .isBefore(LocalDateTime.now());
     }
 

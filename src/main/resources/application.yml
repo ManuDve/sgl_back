@@ -54,6 +54,10 @@ mailtrap:
     token: ${MAILTRAP_API_TOKEN:}
     from-email: ${MAILTRAP_FROM_EMAIL:no-reply@manudavid.cl}
 
+whatsapp:
+  bot:
+    session-ttl-minutes: ${WA_BOT_SESSION_TTL_MINUTES:5}   # minutos de inactividad antes de resetear el estado del bot
+
 twilio:
   account-sid:          ${TWILIO_ACCOUNT_SID:}
   auth-token:           ${TWILIO_AUTH_TOKEN:}

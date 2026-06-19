@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,7 +32,7 @@ class WhatsAppBotServiceTest {
     @Mock private WhatsAppService       whatsAppService;
     @Mock private AppointmentRepository appointmentRepository;
 
-    @InjectMocks
+    // TTL de 10 minutos inyectado manualmente (refleja el default del application.yml)
     private WhatsAppBotService botService;
 
     private static final String PHONE = "+56912345678";
@@ -42,6 +41,7 @@ class WhatsAppBotServiceTest {
 
     @BeforeEach
     void setUp() {
+        botService = new WhatsAppBotService(whatsAppService, appointmentRepository, 10);
         LegalService servicio = LegalService.builder()
             .id(1L).name("Divorcio Contencioso")
             .price(new BigDecimal("500000")).active(true)
