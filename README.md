@@ -6,7 +6,7 @@ API REST de SGL Plataforma de Reserva y Coordinación Jurídica. Gestiona agenda
 
 SGL es un sistema para un estudio jurídico. Esta API expone dos grupos de endpoints: uno público para que los clientes puedan agendar consultas sin crear una cuenta, y uno protegido con JWT para que los administradores gestionen agendamientos, confirmen pagos y administren los servicios del estudio.
 
-El sistema incluye un módulo de notificaciones con reintentos automáticos, un registro de auditoría de emails enviados e integración con Transbank para pagos en línea.
+El sistema incluye un módulo de notificaciones con reintentos automáticos, gestión para reagendar y cancelar consultas, un registro de auditoría de emails enviados e integración con Transbank para pagos en línea.
 
 ## Tecnologías
 
